@@ -1,12 +1,11 @@
 import child_process from 'child_process'
 import fs from 'fs'
-import path from 'path'
-import { getPkg } from 'simon-js-tool'
+import { getPkg, getResolvedPath } from 'simon-js-tool'
 export async function ccommand() {
   const dirname = process.argv[2] || '.'
   let isYarn = false
   try {
-    fs.accessSync(path.resolve(dirname, './yarn.lock'), fs.constants.F_OK)
+    fs.accessSync(getResolvedPath('./yarn.lock'), fs.constants.F_OK)
     isYarn = true
   }
   catch (error) {

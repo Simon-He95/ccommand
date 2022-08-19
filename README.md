@@ -4,6 +4,13 @@
 ## feature
 兼容了yarn和npm的命令行工具
 
+## warning
+依赖 [gum](https://github.com/charmbracelet/gum), 需要全局安装gum才可生效
+
+## 安装gum
+```bash
+npm i -g gum
+```
 
 ## 安装
 ```bash

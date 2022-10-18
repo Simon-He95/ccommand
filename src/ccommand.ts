@@ -11,8 +11,10 @@ export async function ccommand() {
   catch (error) {
   }
   const { scripts } = await getPkg(`${dirname}/package.json`)
+  const keys: string[] = []
   const val = child_process.spawnSync(`gum choose ${Object.keys(scripts).reduce((result, key) => {
     const value = scripts[key]
+    keys.push(key)
     result += `"${key}: ${value}" `
     return result
   }, '')}`, {
@@ -27,7 +29,7 @@ export async function ccommand() {
   })
 
   function transformScripts(str: string) {
-    return str.slice(0, str.lastIndexOf(':'))
+    return keys.find(key => str.startsWith(key))
   }
 }
 

@@ -7,13 +7,13 @@
 
 ## 依赖 | Dependencies
 - 需要安装[gum](https://github.com/charmbracelet/gum#installation)
-# 安装 | Install
+## 安装 | Install
 ```bash
 brew install gum # 安装gum
 npm install -g ccommand # 安装ccommand
 ```
 
-# 使用 | Usage
+## 使用 | Usage
 - ccommand 选取当前目录下的package.json文件中的scripts中的命令
 - ccommand playground 选取当前目录下的playground文件夹下的package.json文件中的scripts中的命令
 - ccommand playground -silent 支持额外的参数传参

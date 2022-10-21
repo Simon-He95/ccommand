@@ -1,6 +1,5 @@
 import child_process from 'child_process'
-import fs from 'fs'
-import { getPkg, getResolvedPath, getPkgTool } from 'simon-js-tool'
+import { getPkg, getPkgTool } from 'simon-js-tool'
 export async function ccommand() {
   const argv = process.argv.slice(2)
   const [dirname, params] = getParams(argv)

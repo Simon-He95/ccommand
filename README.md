@@ -1,27 +1,24 @@
-## ccommand
-用命令选择需要执行的script, 支持直接选择子目录下的script来执行
+<span><div align="center">![kv](/assets/kv.png)</div></span>
 
-## feature
-兼容了yarn和npm的命令行工具
+高效的执行命令行工具 | Efficient execution of command-line tools
 
-## warning
-依赖 [gum](https://github.com/charmbracelet/gum), 需要全局安装gum才可生效
+## 介绍 | Introduction
+支持yarn、pnpm、npm、bun
 
-## 安装gum
+## 依赖 | Dependencies
+- 需要安装[gum](https://github.com/charmbracelet/gum#installation)
+# 安装 | Install
 ```bash
-npm i -g gum
+brew install gum # 安装gum
+npm install -g ccommand # 安装ccommand
 ```
 
-## 安装
-```bash
-npm i -g ccommand
-```
+# 使用 | Usage
+- ccommand 选取当前目录下的package.json文件中的scripts中的命令
+- ccommand playground 选取当前目录下的playground文件夹下的package.json文件中的scripts中的命令
+- ccommand playground -silent 支持额外的参数传参
 
-## 使用
-- ccommand # 默认当前目录
+<a href="https://github.com/Simon-He95/sponsor" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
-![img](./assets/kv.jpg)
-
-- ccommand ./playground # 执行子目录 playground 下的 script
-
-![img](./assets/kv1.jpg)
+## License
+[MIT](./LICENSE) License © 2022 [Simon He](https://github.com/Simon-He95)

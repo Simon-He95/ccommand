@@ -1,29 +1,28 @@
 import child_process from 'child_process'
 import fs from 'fs'
-import { getPkg, getResolvedPath } from 'simon-js-tool'
+import { getPkg, getResolvedPath, getPkgTool } from 'simon-js-tool'
 export async function ccommand() {
-  const dirname = process.argv[2] || '.'
-  let isYarn = false
-  try {
-    fs.accessSync(getResolvedPath('./yarn.lock'), fs.constants.F_OK)
-    isYarn = true
-  }
-  catch (error) {
-  }
-  const { scripts } = await getPkg(`${dirname}/package.json`)
+  const argv = process.argv.slice(2)
+  const [dirname, params] = getParams(argv)
+  const termStart = getPkgTool()
+  const { scripts } = await getPkg(`${dirname || '.'}/package.json`)
   const keys: string[] = []
-  const val = child_process.spawnSync(`gum choose ${Object.keys(scripts).reduce((result, key) => {
+  const options = Object.keys(scripts).reduce((result, key) => {
     const value = scripts[key]
     keys.push(key)
-    result += `"${key}: ${value}" `
+    result += `"${key}: ${value}",`
     return result
-  }, '')}`, {
+  }, '')
+  const val = child_process.spawnSync(`echo ${options} | sed "s/,/\\n/g" | gum filter | cut -d' ' -f1`, {
     shell: true,
     stdio: ['inherit', 'pipe', 'inherit'],
     encoding: 'utf8',
   }).output[1] as string
-
-  child_process.spawnSync(`${isYarn ? 'yarn' : 'npm'} run ${transformScripts(val)} --prefix ${dirname}`, {
+  if (!val) {
+    console.log('已取消')
+    return process.exit()
+  }
+  child_process.spawnSync(getCommand(), {
     shell: true,
     stdio: 'inherit',
   })
@@ -31,6 +30,34 @@ export async function ccommand() {
   function transformScripts(str: string) {
     return keys.find(key => str.startsWith(key))
   }
+  function getCommand() {
+    let dir = ''
+    let prefix = ''
+    const withRun = termStart === 'npm' || termStart === 'pnpm'
+    if (termStart === 'npm') {
+      prefix = params ? ` -- ${params}` : ''
+      dir = dirname ? ` --prefix ${dirname} ` : ' '
+    }
+    else if (termStart === 'pnpm') {
+      prefix = params ? ` ${params}` : ''
+      dir = dirname ? ` --filter ${dirname} ` : ' '
+    }
+    else {
+      prefix = params ? ` ${params}` : ''
+      dir = dirname ? ` workspace ${dirname} ` : ' '
+    }
+    return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(val)}${prefix}`
+  }
+}
+
+function getParams(params: string[]): [string, string] {
+  const first = params[0]
+  if (!first)
+    return ['', '']
+  if (first.startsWith('--'))
+    return ['.', params.join(' ')]
+
+  return [first, params.slice(1).join(' ')]
 }
 
 ccommand()

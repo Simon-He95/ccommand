@@ -29,10 +29,10 @@ export async function ccommand() {
   function transformScripts(str: string) {
     return keys.find(key => str.startsWith(key))
   }
-  function getCommand() {
+  function getCommand(): string {
     let dir = ''
     let prefix = ''
-    const withRun = termStart === 'npm' || termStart === 'pnpm'
+    const withRun = termStart !== 'yarn'
     if (termStart === 'npm') {
       prefix = params ? ` -- ${params}` : ''
       dir = dirname ? ` --prefix ${dirname} ` : ' '
@@ -41,9 +41,13 @@ export async function ccommand() {
       prefix = params ? ` ${params}` : ''
       dir = dirname ? ` --filter ${dirname} ` : ' '
     }
-    else {
+    else if (termStart === 'yarn') {
       prefix = params ? ` ${params}` : ''
       dir = dirname ? ` workspace ${dirname} ` : ' '
+    }
+    else if (termStart === 'bun') {
+      prefix = params ? ` ${params}` : ''
+      dir = ''
     }
     return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(val)}${prefix}`
   }

@@ -2,6 +2,11 @@ import child_process from 'child_process'
 import { getPkg, getPkgTool } from 'simon-js-tool'
 export async function ccommand() {
   const argv = process.argv.slice(2)
+  if (argv[0] === '-v') {
+    const { version } = await getPkg()
+    console.log(`ccommand Version: ${version}`)
+    return
+  }
   const [dirname, params] = getParams(argv)
   const termStart = getPkgTool()
   const { scripts } = await getPkg(`${dirname || '.'}/package.json`)

@@ -12,14 +12,14 @@ importers:
       eslint: ^8.16.0
       eslint-plugin-n: ^15.2.1
       pkgroll: ^1.3.1
-      simon-js-tool: ^4.1.12
+      simon-js-tool: ^4.1.13
       typescript: ^4.7.2
       vite: ^3.0.2
       vitest: ^0.13.1
       vue: ^3.2.36
     dependencies:
       '@vueuse/core': 8.9.4_vue@3.2.41
-      simon-js-tool: 4.1.12
+      simon-js-tool: 4.1.13
       vue: 3.2.41
     devDependencies:
       '@antfu/eslint-config': 0.26.3_z4bbprzjrhnsfa24uvmcbu7f5q
@@ -4093,8 +4093,8 @@ packages:
     resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
     dev: true
 
-  /simon-js-tool/4.1.12:
-    resolution: {integrity: sha512-pzlbo7nHIP/9qUjpg305ggDtPutm97y9zy6VuxkjngF6umFKGD6lb0ve81yDQUGaox/YHwT0LlwLocPM0nYOCA==}
+  /simon-js-tool/4.1.13:
+    resolution: {integrity: sha512-xVetsn6jg6RDMgv9/9ahNKG02QSbrKwuxMe1Gf4OfCTXcGu4+OKXhV09g4XKvLyKLuat58umc1rv5d6YRrLiJA==}
     dependencies:
       '@vueuse/core': 8.9.4_vue@3.2.41
       htmlparser2: 8.0.1

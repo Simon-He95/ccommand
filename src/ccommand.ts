@@ -44,11 +44,11 @@ export async function ccommand() {
     }
     else if (termStart === 'pnpm') {
       prefix = params ? ` ${params}` : ''
-      dir = dirname ? ` --filter ${dirname} ` : ' '
+      dir = dirname ? ` --filter ${dirname.slice(dirname.lastIndexOf('/') + 1)} ` : ' '
     }
     else if (termStart === 'yarn') {
       prefix = params ? ` ${params}` : ''
-      dir = dirname ? ` workspace ${dirname} ` : ' '
+      dir = dirname ? ` workspace ${dirname.slice(dirname.lastIndexOf('/') + 1)} ` : ' '
     }
     else if (termStart === 'bun') {
       prefix = params ? ` ${params}` : ''

@@ -49,8 +49,10 @@
   },
   "dependencies": {
     "@vueuse/core": "^8.1.1",
+    "fast-glob": "^3.2.12",
     "simon-js-tool": "^4.1.13",
-    "vue": "^3.2.36"
+    "vue": "^3.2.36",
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^0.26.1",

@@ -73,20 +73,25 @@ export async function ccommand() {
     return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(val)}${prefix}`
   }
   async function getScripts() {
-    console.log(dirname)
-    if (!dirname || termStart === 'bun' || termStart === 'npm')
-      return (await getPkg('./package.json'))?.scripts
-    if (termStart === 'pnpm') {
-      const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
-      const packages = YAML.parse(workspace)?.packages || []
-      const data = await readGlob(packages)
-      return data?.[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+    try {
+      if (!dirname || termStart === 'bun' || termStart === 'npm')
+        return (await getPkg('./package.json'))?.scripts
+      if (termStart === 'pnpm') {
+        const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
+        const packages = YAML.parse(workspace)?.packages || []
+        const data = await readGlob(packages)
+        return data?.[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+      }
+      else if (termStart === 'yarn') {
+        const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
+        const packages = JSON.parse(workspace)?.workspaces || []
+        const data = await readGlob(packages)
+        return data?.[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+      }
     }
-    else if (termStart === 'yarn') {
-      const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
-      const packages = JSON.parse(workspace)?.workspaces || []
-      const data = await readGlob(packages)
-      return data?.[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+    catch (error) {
+      console.log('The package.json is not found in workspace or current directory, please check')
+      process.exit()
     }
   }
 }

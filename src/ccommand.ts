@@ -14,6 +14,7 @@ interface IParams {
 let workspaceNames: string[] = []
 let cacheData: any = null
 export async function ccommand() {
+  const splitFlag = '__ccommand__split'
   const { status } = child_process.spawnSync('gum -v', {
     shell: true,
     encoding: 'utf-8',
@@ -66,15 +67,14 @@ export async function ccommand() {
   const scripts = await getScripts()
   if (!scripts)
     return console.log('No scripts found')
-
   const keys: string[] = []
   const options = Object.keys(scripts).reduce((result, key) => {
     const value = scripts[key]
     keys.push(key)
-    result += `"${key}: ${value}",`
+    result += `"${key}: ${value}"${splitFlag}`
     return result
   }, '')
-  const val = child_process.spawnSync(`echo ${options} | sed "s/,/\\n/g" | gum filter | cut -d' ' -f1`, {
+  const val = child_process.spawnSync(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter | cut -d' ' -f1`, {
     shell: true,
     stdio: ['inherit', 'pipe', 'inherit'],
     encoding: 'utf8',

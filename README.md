@@ -16,6 +16,7 @@ npm install -g ccommand # 安装ccommand
 ccommand -v # 查看版本
 ccommand find # 查找workspace
 ccommand # 执行当前script
+ccommand -help # 查看帮助
 ```
 
 ## 使用 | Usage

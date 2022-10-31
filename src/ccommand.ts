@@ -3,6 +3,9 @@ import fs from 'fs'
 import path from 'path'
 import { getPkg, getPkgTool } from 'simon-js-tool'
 import fg from 'fast-glob'
+import chalk from 'chalk'
+import terminalLink from 'terminal-link'
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
 
@@ -14,32 +17,45 @@ interface IParams {
 let workspaceNames: string[] = []
 let cacheData: any = null
 export async function ccommand() {
+  const log = console.log
   const splitFlag = '__ccommand__split'
   const { status } = child_process.spawnSync('gum -v', {
     shell: true,
     encoding: 'utf-8',
   })
   if (status !== 0) {
-    console.log('install gum...')
+    log(chalk.blue('install gum...'))
     const { status } = child_process.spawnSync('brew install gum', { shell: true })
     if (status !== 0) {
       const { status } = child_process.spawnSync(`sudo mkdir -p /etc/apt/keyrings
     curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
     sudo apt update && sudo apt install gum`, { shell: true })
-      if (status !== 0)
-        return console.log('gum install error')
+      if (status !== 0) {
+        const link = terminalLink('the official website of gum', 'https://github.com/charmbracelet/gum#installation')
+        return log(chalk.red('gum install error, you can install it yourself through ', chalk.yellow.bold(link)))
+      }
     }
-    console.log('gum install successfully')
+    log(chalk.green('gum install successfully'))
   }
-
   const argv = process.argv.slice(2)
   if (argv[0] === '-v') {
     const { version } = await getPkg()
-    console.log(`ccommand Version: ${version}`)
-    return
+    return log(chalk.green(`ccommand Version: ${version}`))
   }
-
+  if (argv[0] === '-help') {
+    const issueLink = terminalLink('open an issue', 'https://github.com/Simon-He95/ccommand/issues')
+    const starLink = terminalLink('✨star it', 'https://github.com/Simon-He95/ccommand')
+    return log(chalk.white(`
+  ${chalk.bgBlueBright.bold('Common Command:')}
+  ${chalk.cyanBright(`- ccommand -v  查看当前版本
+  - ccommand -help 查看帮助
+  - ccommand 执行当前package.json
+  - ccommand find 查找当前workspace的所有目录
+`)}
+  If you encounter any problems, you can ${chalk.magentaBright(issueLink)}.
+  If you like it, please ${chalk.cyan.bold(starLink)}`))
+  }
   const [name, params] = getParams(argv)
   let dirname = name
   const termStart = getPkgTool()
@@ -62,11 +78,11 @@ export async function ccommand() {
       }).output[1] as string
       dirname = choose.trim()
     }
-    else { return console.log('find command only support yarn or pnpm') }
+    else { return log(chalk.red('find command only support yarn or pnpm')) }
   }
   const scripts = await getScripts()
   if (!scripts)
-    return console.log('No scripts found')
+    return log(chalk.red('No scripts found'))
   const keys: string[] = []
   const options = Object.keys(scripts).reduce((result, key) => {
     const value = scripts[key]
@@ -80,7 +96,7 @@ export async function ccommand() {
     encoding: 'utf8',
   }).output[1] as string
   if (!val) {
-    console.log('已取消')
+    log(chalk.yellow('已取消'))
     return process.exit()
   }
   child_process.spawnSync(getCommand(), {
@@ -123,7 +139,7 @@ export async function ccommand() {
         return (await getYarnData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
     }
     catch (error) {
-      console.log('The package.json is not found in workspace or current directory, please check')
+      log(chalk.red('The package.json is not found in workspace or current directory, please check'))
       process.exit()
     }
   }

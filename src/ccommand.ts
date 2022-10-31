@@ -14,6 +14,24 @@ interface IParams {
 let workspaceNames: string[] = []
 let cacheData: any = null
 export async function ccommand() {
+  const { status } = child_process.spawnSync('gum -v', {
+    shell: true,
+    encoding: 'utf-8',
+  })
+  if (status !== 0) {
+    console.log('install gum...')
+    const { status } = child_process.spawnSync('brew install gum', { shell: true })
+    if (status !== 0) {
+      const { status } = child_process.spawnSync(`sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+    sudo apt update && sudo apt install gum`, { shell: true })
+      if (status !== 0)
+        return console.log('gum install error')
+    }
+    console.log('gum install successfully')
+  }
+
   const argv = process.argv.slice(2)
   if (argv[0] === '-v') {
     const { version } = await getPkg()

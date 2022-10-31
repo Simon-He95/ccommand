@@ -11,6 +11,8 @@ interface IParams {
   scripts: Record<string, string>
 }
 
+let workspaceNames: string[] = []
+let cacheData: any = null
 export async function ccommand() {
   const argv = process.argv.slice(2)
   if (argv[0] === '-v') {
@@ -19,9 +21,30 @@ export async function ccommand() {
     return
   }
 
-  const [dirname, params] = getParams(argv)
+  const [name, params] = getParams(argv)
+  let dirname = name
   const termStart = getPkgTool()
-
+  if (argv[0] === 'find') {
+    if (termStart === 'yarn') {
+      await getYarnData()
+      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter`, {
+        shell: true,
+        stdio: ['inherit', 'pipe', 'inherit'],
+        encoding: 'utf8',
+      }).output[1] as string
+      dirname = choose.trim()
+    }
+    else if (termStart === 'pnpm') {
+      await getPnpmData()
+      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter`, {
+        shell: true,
+        stdio: ['inherit', 'pipe', 'inherit'],
+        encoding: 'utf8',
+      }).output[1] as string
+      dirname = choose.trim()
+    }
+    else { return console.log('find command only support yarn or pnpm') }
+  }
   const scripts = await getScripts()
   if (!scripts)
     return console.log('No scripts found')
@@ -77,23 +100,37 @@ export async function ccommand() {
       if (!dirname || termStart === 'bun' || termStart === 'npm')
         return (await getPkg('./package.json'))?.scripts
       if (termStart === 'pnpm') {
-        const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
-        const packages = YAML.parse(workspace)?.packages || []
-        const data = await readGlob(packages)
-        return data?.[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+        console.log('getScripts', dirname)
+
+        return (await getPnpmData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
       }
-      else if (termStart === 'yarn') {
-        const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
-        const packages = JSON.parse(workspace)?.workspaces || []
-        const data = await readGlob(packages)
-        return data?.[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
-      }
+      else if (termStart === 'yarn') { return (await getYarnData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts }
     }
     catch (error) {
       console.log('The package.json is not found in workspace or current directory, please check')
       process.exit()
     }
   }
+}
+
+async function getPnpmData() {
+  if (cacheData)
+    return cacheData
+  const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
+  const packages = YAML.parse(workspace)?.packages || []
+  cacheData = (await readGlob(packages)) || {}
+  workspaceNames = Object.keys(cacheData)
+  return cacheData
+}
+
+async function getYarnData() {
+  if (cacheData)
+    return cacheData
+  const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
+  const packages = JSON.parse(workspace)?.workspaces || []
+  cacheData = (await readGlob(packages)) || {}
+  workspaceNames = Object.keys(cacheData)
+  return cacheData
 }
 
 function getParams(params: string[]): [string, string] {

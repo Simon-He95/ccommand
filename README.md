@@ -7,10 +7,18 @@
 
 ## 依赖 | Dependencies
 - 需要安装[gum](https://github.com/charmbracelet/gum#installation)
+
 ## 安装 | Install
 ```bash
 brew install gum # 安装gum
 npm install -g ccommand # 安装ccommand
+```
+
+## 指令 ｜ Command
+```bash
+ccommand -v # 查看版本
+ccommand find # 查找workspace
+ccommand # 执行当前script
 ```
 
 ## 使用 | Usage

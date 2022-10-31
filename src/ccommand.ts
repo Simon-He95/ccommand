@@ -99,12 +99,10 @@ export async function ccommand() {
     try {
       if (!dirname || termStart === 'bun' || termStart === 'npm')
         return (await getPkg('./package.json'))?.scripts
-      if (termStart === 'pnpm') {
-        console.log('getScripts', dirname)
-
+      if (termStart === 'pnpm')
         return (await getPnpmData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
-      }
-      else if (termStart === 'yarn') { return (await getYarnData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts }
+      else if (termStart === 'yarn')
+        return (await getYarnData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
     }
     catch (error) {
       console.log('The package.json is not found in workspace or current directory, please check')

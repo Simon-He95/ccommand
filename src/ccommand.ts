@@ -62,7 +62,7 @@ export async function ccommand() {
   if (argv[0] === 'find') {
     if (termStart === 'yarn') {
       await getData(termStart)
-      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter`, {
+      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, {
         shell: true,
         stdio: ['inherit', 'pipe', 'inherit'],
         encoding: 'utf8',
@@ -73,7 +73,7 @@ export async function ccommand() {
     }
     else if (termStart === 'pnpm') {
       await getData(termStart)
-      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter`, {
+      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, {
         shell: true,
         stdio: ['inherit', 'pipe', 'inherit'],
         encoding: 'utf8',
@@ -94,7 +94,7 @@ export async function ccommand() {
     result += `"${key}: ${value}"${splitFlag}`
     return result
   }, '')
-  const val = child_process.spawnSync(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter | cut -d' ' -f1`, {
+  const val = child_process.spawnSync(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`, {
     shell: true,
     stdio: ['inherit', 'pipe', 'inherit'],
     encoding: 'utf8',

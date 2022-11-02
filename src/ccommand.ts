@@ -61,22 +61,26 @@ export async function ccommand() {
   const termStart = getPkgTool()
   if (argv[0] === 'find') {
     if (termStart === 'yarn') {
-      await getYarnData()
+      await getData(termStart)
       const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter`, {
         shell: true,
         stdio: ['inherit', 'pipe', 'inherit'],
         encoding: 'utf8',
       }).output[1] as string
       dirname = choose.trim()
+      if (!dirname)
+        return console.log(chalk.yellow('已取消'))
     }
     else if (termStart === 'pnpm') {
-      await getPnpmData()
+      await getData(termStart)
       const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter`, {
         shell: true,
         stdio: ['inherit', 'pipe', 'inherit'],
         encoding: 'utf8',
       }).output[1] as string
       dirname = choose.trim()
+      if (!dirname)
+        return console.log(chalk.yellow('已取消'))
     }
     else { return log(chalk.red('find command only support yarn or pnpm')) }
   }
@@ -134,9 +138,9 @@ export async function ccommand() {
       if (!dirname || termStart === 'bun' || termStart === 'npm')
         return (await getPkg('./package.json'))?.scripts
       if (termStart === 'pnpm')
-        return (await getPnpmData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+        return (await getData(termStart))[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
       else if (termStart === 'yarn')
-        return (await getYarnData())[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+        return (await getData(termStart))[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
     }
     catch (error) {
       log(chalk.red('The package.json is not found in workspace or current directory, please check'))
@@ -145,23 +149,17 @@ export async function ccommand() {
   }
 }
 
-async function getPnpmData() {
+async function getData(type: 'pnpm' | 'yarn') {
   if (cacheData)
     return cacheData
-  const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
-  const packages = YAML.parse(workspace)?.packages || []
+  const workspace = type === 'pnpm'
+    ? await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
+    : await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
+  const packages = type === 'pnpm'
+    ? YAML.parse(workspace)?.packages || []
+    : JSON.parse(workspace)?.workspaces || []
   cacheData = (await readGlob(packages)) || {}
-  workspaceNames = Object.keys(cacheData)
-  return cacheData
-}
-
-async function getYarnData() {
-  if (cacheData)
-    return cacheData
-  const workspace = await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
-  const packages = JSON.parse(workspace)?.workspaces || []
-  cacheData = (await readGlob(packages)) || {}
-  workspaceNames = Object.keys(cacheData)
+  workspaceNames = Object.keys(cacheData).filter(key => cacheData[key] && Object.keys(cacheData[key]).length)
   return cacheData
 }
 

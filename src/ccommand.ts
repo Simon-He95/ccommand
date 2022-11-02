@@ -5,6 +5,7 @@ import { getPkg, getPkgTool } from 'simon-js-tool'
 import fg from 'fast-glob'
 import chalk from 'chalk'
 import terminalLink from 'terminal-link'
+import { version } from '../package.json'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
@@ -39,10 +40,9 @@ export async function ccommand() {
     log(chalk.green('gum install successfully'))
   }
   const argv = process.argv.slice(2)
-  if (argv[0] === '-v') {
-    const { version } = await getPkg()
+  if (argv[0] === '-v' || argv[0] === '--version')
     return log(chalk.green(`ccommand Version: ${version}`))
-  }
+
   if (argv[0] === '-help') {
     const issueLink = terminalLink('open an issue', 'https://github.com/Simon-He95/ccommand/issues')
     const starLink = terminalLink('✨star it', 'https://github.com/Simon-He95/ccommand')

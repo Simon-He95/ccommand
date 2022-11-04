@@ -1,7 +1,6 @@
-import child_process from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { getPkg, getPkgTool } from 'simon-js-tool'
+import { getPkg, getPkgTool, jsShell } from 'simon-js-tool'
 import fg from 'fast-glob'
 import chalk from 'chalk'
 import terminalLink from 'terminal-link'
@@ -20,18 +19,15 @@ let cacheData: any = null
 export async function ccommand() {
   const log = console.log
   const splitFlag = '__ccommand__split'
-  const { status } = child_process.spawnSync('gum -v', {
-    shell: true,
-    encoding: 'utf-8',
-  })
+  const { status } = jsShell('gum -v', 'pipe')
   if (status !== 0) {
     log(chalk.blue('install gum...'))
-    const { status } = child_process.spawnSync('brew install gum', { shell: true })
+    const { status } = jsShell('brew install gum')
     if (status !== 0) {
-      const { status } = child_process.spawnSync(`sudo mkdir -p /etc/apt/keyrings
+      const { status } = jsShell(`sudo mkdir -p /etc/apt/keyrings
     curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-    sudo apt update && sudo apt install gum`, { shell: true })
+    sudo apt update && sudo apt install gum`)
       if (status !== 0) {
         const link = terminalLink('the official website of gum', 'https://github.com/charmbracelet/gum#installation')
         return log(chalk.red('gum install error, you can install it yourself through ', chalk.yellow.bold(link)))
@@ -62,22 +58,14 @@ export async function ccommand() {
   if (argv[0] === 'find') {
     if (termStart === 'yarn') {
       await getData(termStart)
-      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, {
-        shell: true,
-        stdio: ['inherit', 'pipe', 'inherit'],
-        encoding: 'utf8',
-      }).output[1] as string
-      dirname = choose.trim()
+      const { result: choose } = jsShell(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, 'pipe')
+      dirname = choose
       if (!dirname)
         return console.log(chalk.yellow('已取消'))
     }
     else if (termStart === 'pnpm') {
       await getData(termStart)
-      const choose = child_process.spawnSync(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, {
-        shell: true,
-        stdio: ['inherit', 'pipe', 'inherit'],
-        encoding: 'utf8',
-      }).output[1] as string
+      const { result: choose } = jsShell(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, 'pipe')
       dirname = choose.trim()
       if (!dirname)
         return console.log(chalk.yellow('已取消'))
@@ -94,19 +82,12 @@ export async function ccommand() {
     result += `"${key}: ${value}"${splitFlag}`
     return result
   }, '')
-  const val = child_process.spawnSync(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`, {
-    shell: true,
-    stdio: ['inherit', 'pipe', 'inherit'],
-    encoding: 'utf8',
-  }).output[1] as string
+  const { result: val } = jsShell(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`, 'pipe')
   if (!val) {
     log(chalk.yellow('已取消'))
     return process.exit()
   }
-  child_process.spawnSync(getCommand(), {
-    shell: true,
-    stdio: 'inherit',
-  })
+  jsShell(getCommand())
 
   function transformScripts(str: string) {
     return keys.find(key => str.startsWith(key))

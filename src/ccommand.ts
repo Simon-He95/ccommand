@@ -75,11 +75,12 @@ export async function ccommand() {
   const scripts = await getScripts()
   if (!scripts)
     return log(chalk.red('No scripts found'))
+
   const keys: string[] = []
   const options = Object.keys(scripts).reduce((result, key) => {
     const value = scripts[key]
     keys.push(key)
-    result += `"${key}: ${value}"${splitFlag}`
+    result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
     return result
   }, '')
   const { result: val } = jsShell(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`, 'pipe')

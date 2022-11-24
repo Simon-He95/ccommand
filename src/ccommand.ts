@@ -52,6 +52,14 @@ export async function ccommand() {
   If you encounter any problems, you can ${chalk.magentaBright(issueLink)}.
   If you like it, please ${chalk.cyan.bold(starLink)}`))
   }
+  if (argv[0]) {
+    const pkg = (await getPkg('./package.json'))?.scripts
+    if (pkg && pkg[argv[0]]) {
+      jsShell(`yarn ${argv[0]}`)
+      return log(chalk.green(`command ${argv[0]} run successfully`))
+    }
+  }
+
   const [name, params] = getParams(argv)
   let dirname = name
   const termStart = getPkgTool()

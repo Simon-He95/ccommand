@@ -52,17 +52,32 @@ export async function ccommand() {
   If you encounter any problems, you can ${chalk.magentaBright(issueLink)}.
   If you like it, please ${chalk.cyan.bold(starLink)}`))
   }
+  const termStart = getPkgTool()
+
   if (argv[0]) {
     const pkg = (await getPkg('./package.json'))?.scripts
     if (pkg && pkg[argv[0]]) {
-      jsShell(`yarn ${argv[0]}`)
+      log(chalk.yellow(`ccommand is executing ${chalk.bgCyan(`'${argv[0]}'`)} 🤔 `))
+      switch (termStart) {
+        case 'npm':
+          jsShell(`npm run ${argv[0]}`)
+          break
+        case 'pnpm':
+          jsShell(`pnpm run ${argv[0]}`)
+          break
+        case 'yarn':
+          jsShell(`yarn ${argv[0]}`)
+          break
+        case 'bun':
+          jsShell(`bun ${argv[0]}`)
+          break
+      }
       return log(chalk.green(`command ${argv[0]} run successfully`))
     }
   }
 
   const [name, params] = getParams(argv)
   let dirname = name
-  const termStart = getPkgTool()
   if (argv[0] === 'find') {
     if (termStart === 'yarn') {
       await getData(termStart)

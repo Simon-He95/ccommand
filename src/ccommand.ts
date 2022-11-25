@@ -4,7 +4,7 @@ import { getPkg, getPkgTool, jsShell } from 'simon-js-tool'
 import fg from 'fast-glob'
 import chalk from 'chalk'
 import terminalLink from 'terminal-link'
-// import { version } from '../package.json'
+import { version } from '../package.json'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')

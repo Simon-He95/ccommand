@@ -4,7 +4,7 @@ import { getPkg, getPkgTool, jsShell } from 'simon-js-tool'
 import fg from 'fast-glob'
 import chalk from 'chalk'
 import terminalLink from 'terminal-link'
-import { version } from '../package.json'
+// import { version } from '../package.json'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
@@ -53,26 +53,29 @@ export async function ccommand() {
   If you like it, please ${chalk.cyan.bold(starLink)}`))
   }
   const termStart = getPkgTool()
-
   if (argv[0]) {
-    const pkg = (await getPkg('./package.json'))?.scripts
-    if (pkg && pkg[argv[0]]) {
-      log(chalk.yellow(`ccommand is executing ${chalk.bgCyan(`'${argv[0]}'`)} 🤔 `))
-      switch (termStart) {
-        case 'npm':
-          jsShell(`npm run ${argv[0]}`)
-          break
-        case 'pnpm':
-          jsShell(`pnpm run ${argv[0]}`)
-          break
-        case 'yarn':
-          jsShell(`yarn ${argv[0]}`)
-          break
-        case 'bun':
-          jsShell(`bun ${argv[0]}`)
-          break
+    try {
+      const pkg = ((await getPkg('./package.json')) || {})?.scripts
+      if (pkg && pkg[argv[0]]) {
+        log(chalk.yellow(`ccommand is executing ${chalk.bgCyan(`'${argv[0]}'`)} 🤔 `))
+        switch (termStart) {
+          case 'npm':
+            jsShell(`npm run ${argv[0]}`)
+            break
+          case 'pnpm':
+            jsShell(`pnpm run ${argv[0]}`)
+            break
+          case 'yarn':
+            jsShell(`yarn ${argv[0]}`)
+            break
+          case 'bun':
+            jsShell(`bun ${argv[0]}`)
+            break
+        }
+        return log(chalk.green(`command ${argv[0]} run successfully`))
       }
-      return log(chalk.green(`command ${argv[0]} run successfully`))
+    }
+    catch (error) {
     }
   }
 
@@ -148,7 +151,8 @@ export async function ccommand() {
         return (await getData(termStart))[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
     }
     catch (error) {
-      log(chalk.red('The package.json is not found in workspace or current directory, please check'))
+      log(chalk.red(`"${argv[0]}" is not found in workspace, current directory 
+or current scripts, please check`))
       process.exit()
     }
   }

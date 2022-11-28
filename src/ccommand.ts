@@ -33,7 +33,7 @@ export async function ccommand() {
         return log(chalk.red('gum install error, you can install it yourself through ', chalk.yellow.bold(link)))
       }
     }
-    log(chalk.green('gum install successfully'))
+    log(chalk.green('gum install successfully 🎉'))
   }
   const argv = process.argv.slice(2)
   if (argv[0] === '-v' || argv[0] === '--version')
@@ -58,21 +58,36 @@ export async function ccommand() {
       const pkg = ((await getPkg('./package.json')) || {})?.scripts
       if (pkg && pkg[argv[0]]) {
         log(chalk.yellow(`ccommand is executing ${chalk.bgCyan(`'${argv[0]}'`)} 🤔 `))
+        let _status
         switch (termStart) {
           case 'npm':
-            jsShell(`npm run ${argv[0]}`)
+          {
+            const { status } = jsShell(`npm run ${argv[0]}`)
+            _status = status
             break
+          }
           case 'pnpm':
-            jsShell(`pnpm run ${argv[0]}`)
+          {
+            const { status } = jsShell(`pnpm run ${argv[0]}`)
+            _status = status
             break
+          }
           case 'yarn':
-            jsShell(`yarn ${argv[0]}`)
+          {
+            const { status: runStatus } = jsShell(`yarn ${argv[0]}`)
+            _status = runStatus
             break
+          }
           case 'bun':
-            jsShell(`bun ${argv[0]}`)
+          {
+            const { status } = jsShell(`bun ${argv[0]}`)
+            _status = status
             break
+          }
         }
-        return log(chalk.green(`command ${argv[0]} run successfully`))
+        if (_status === 0)
+          return log(chalk.green(`\ncommand ${argv[0]} run successfully 🎉`))
+        return log(chalk.red(`\ncommand ${argv[0]} run error ❌`))
       }
     }
     catch (error) {
@@ -114,7 +129,12 @@ export async function ccommand() {
     log(chalk.yellow('已取消'))
     return process.exit()
   }
-  jsShell(getCommand())
+  const { status: _status } = jsShell(getCommand())
+  if (_status === 0) {
+    log(chalk.green(`\ncommand ${val} run successfully 🎉`))
+    return process.exit()
+  }
+  log(chalk.red(`\ncommand ${val} run error ❌`))
 
   function transformScripts(str: string) {
     return keys.find(key => str.startsWith(key))

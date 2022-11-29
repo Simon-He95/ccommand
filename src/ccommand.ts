@@ -159,6 +159,7 @@ export async function ccommand() {
       prefix = params ? ` ${params}` : ''
       dir = ''
     }
+
     return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(val)}${prefix}`
   }
   async function getScripts() {
@@ -197,7 +198,7 @@ function getParams(params: string[]): [string, string] {
   if (!first)
     return ['', '']
   if (first.startsWith('--'))
-    return ['.', params.join(' ')]
+    return ['', params.join(' ')]
   return [first, params.slice(1).join(' ')]
 }
 

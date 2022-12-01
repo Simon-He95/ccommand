@@ -48,6 +48,7 @@
     "release": "bumpp --commit --tag --push && git push origin --tags -f && npm publish"
   },
   "dependencies": {
+    "@simon_he/colorize": "^0.0.1",
     "@vueuse/core": "^8.1.1",
     "chalk": "^5.1.2",
     "fast-glob": "^3.2.12",

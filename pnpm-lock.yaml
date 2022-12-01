@@ -5,6 +5,7 @@ importers:
   .:
     specifiers:
       '@antfu/eslint-config': ^0.26.1
+      '@simon_he/colorize': ^0.0.1
       '@types/node': ^17.0.45
       '@vitejs/plugin-vue': ^3.0.1
       '@vueuse/core': ^8.1.1
@@ -22,6 +23,7 @@ importers:
       vue: ^3.2.36
       yamljs: ^0.3.0
     dependencies:
+      '@simon_he/colorize': 0.0.1
       '@vueuse/core': 8.9.4_vue@3.2.41
       chalk: 5.1.2
       fast-glob: 3.2.12
@@ -643,6 +645,12 @@ packages:
       estree-walker: 2.0.2
       picomatch: 2.3.1
     dev: true
+
+  /@simon_he/colorize/0.0.1:
+    resolution: {integrity: sha512-AsMYrX9s9Nw3CfXoPc4mVRc1/NJTR8UNhKS0dscA1rtzs0JEGHoxeOkwpx8kvm8zjUZP9Spup1TYPVBe0iLCFA==}
+    dependencies:
+      picocolors: 1.0.0
+    dev: false
 
   /@tootallnate/once/2.0.0:
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}

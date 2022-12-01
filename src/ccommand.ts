@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import { getPkg, getPkgTool, jsShell } from 'simon-js-tool'
 import fg from 'fast-glob'
-import chalk from 'chalk'
 import terminalLink from 'terminal-link'
+import colorize from '@simon_he/colorize'
 import { version } from '../package.json'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -21,7 +21,7 @@ export async function ccommand() {
   const splitFlag = '__ccommand__split'
   const { status } = jsShell('gum -v', 'pipe')
   if (status !== 0) {
-    log(chalk.blue('install gum...'))
+    log(colorize({ color: 'blue', text: 'install gum...' }))
     const { status } = jsShell('brew install gum')
     if (status !== 0) {
       const { status } = jsShell(`sudo mkdir -p /etc/apt/keyrings
@@ -30,64 +30,78 @@ export async function ccommand() {
     sudo apt update && sudo apt install gum`)
       if (status !== 0) {
         const link = terminalLink('the official website of gum', 'https://github.com/charmbracelet/gum#installation')
-        return log(chalk.red('gum install error, you can install it yourself through ', chalk.yellow.bold(link)))
+        return log(colorize({ color: 'red', text: `gum install error, you can install it yourself through ${colorize({ color: 'yellow', text: link, bold: true })}` }))
       }
     }
-    log(chalk.green('gum install successfully 🎉'))
+    log(colorize({ color: 'green', text: 'gum install successfully 🎉' }))
   }
   const argv = process.argv.slice(2)
-  if (argv[0] === '-v' || argv[0] === '--version')
-    return log(chalk.green(`ccommand Version: ${version}`))
+  if (argv[0] === '-v' || argv[0] === '--version') {
+    return log(colorize({
+      text: `ccommand Version: ${version}`,
+      color: 'green',
+    }))
+  }
 
-  if (argv[0] === '-help') {
+  if (argv[0] === '-h' || argv[0] === '--help') {
     const issueLink = terminalLink('open an issue', 'https://github.com/Simon-He95/ccommand/issues')
     const starLink = terminalLink('✨star it', 'https://github.com/Simon-He95/ccommand')
-    return log(chalk.white(`
-  ${chalk.bgBlueBright.bold('Common Command:')}
-  ${chalk.cyanBright(`- ccommand -v  查看当前版本
+    return log(colorize({
+      color: 'white',
+      text: `
+  ${colorize({
+        bold: true,
+        text: 'Common Commands:',
+        bgColor: 'blue',
+      })}
+  ${colorize({
+        text: `- ccommand -v  查看当前版本
   - ccommand -help 查看帮助
   - ccommand 执行当前package.json
   - ccommand find 查找当前workspace的所有目录
-`)}
-  If you encounter any problems, you can ${chalk.magentaBright(issueLink)}.
-  If you like it, please ${chalk.cyan.bold(starLink)}`))
+      `,
+        color: 'cyan',
+      })}
+  If you encounter any problems, you can ${colorize({ color: 'magenta', text: issueLink })}.
+  If you like it, please ${colorize({ text: starLink, bold: true, color: 'cyan' })} `,
+    }))
   }
   const termStart = getPkgTool()
   if (argv[0]) {
     try {
       const pkg = ((await getPkg('./package.json')) || {})?.scripts
       if (pkg && pkg[argv[0]]) {
-        log(chalk.yellow(`ccommand is executing ${chalk.bgCyan(`'${argv[0]}'`)} 🤔 `))
+        log(colorize({ text: `ccommand is executing ${colorize({ color: 'cyan', text: `'${argv[0]}'` })} 🤔 `, color: 'yellow' }))
         let _status
         switch (termStart) {
           case 'npm':
-          {
-            const { status } = jsShell(`npm run ${argv[0]}`)
-            _status = status
-            break
-          }
+            {
+              const { status } = jsShell(`npm run ${argv[0]}`)
+              _status = status
+              break
+            }
           case 'pnpm':
-          {
-            const { status } = jsShell(`pnpm run ${argv[0]}`)
-            _status = status
-            break
-          }
+            {
+              const { status } = jsShell(`pnpm run ${argv[0]}`)
+              _status = status
+              break
+            }
           case 'yarn':
-          {
-            const { status: runStatus } = jsShell(`yarn ${argv[0]}`)
-            _status = runStatus
-            break
-          }
+            {
+              const { status: runStatus } = jsShell(`yarn ${argv[0]}`)
+              _status = runStatus
+              break
+            }
           case 'bun':
-          {
-            const { status } = jsShell(`bun ${argv[0]}`)
-            _status = status
-            break
-          }
+            {
+              const { status } = jsShell(`bun ${argv[0]}`)
+              _status = status
+              break
+            }
         }
         if (_status === 0)
-          return log(chalk.green(`\ncommand ${argv[0]} run successfully 🎉`))
-        return log(chalk.red(`\ncommand ${argv[0]} run error ❌`))
+          return log(colorize({ color: 'green', text: `\ncommand ${argv[0]} run successfully 🎉` }))
+        return log(colorize({ color: 'red', text: `\ncommand ${argv[0]} run error ❌` }))
       }
     }
     catch (error) {
@@ -102,20 +116,20 @@ export async function ccommand() {
       const { result: choose } = jsShell(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, 'pipe')
       dirname = choose
       if (!dirname)
-        return console.log(chalk.yellow('已取消'))
+        return console.log(colorize({ color: 'yellow', text: '已取消' }))
     }
     else if (termStart === 'pnpm') {
       await getData(termStart)
       const { result: choose } = jsShell(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, 'pipe')
       dirname = choose.trim()
       if (!dirname)
-        return console.log(chalk.yellow('已取消'))
+        return console.log(colorize({ color: 'yellow', text: '已取消' }))
     }
-    else { return log(chalk.red('find command only support yarn or pnpm')) }
+    else { return log(colorize({ color: 'red', text: 'find command only support yarn or pnpm' })) }
   }
   const scripts = await getScripts()
   if (!scripts)
-    return log(chalk.red('No scripts found'))
+    return log(colorize({ color: 'red', text: 'No scripts found' }))
 
   const keys: string[] = []
   const options = Object.keys(scripts).reduce((result, key) => {
@@ -126,15 +140,15 @@ export async function ccommand() {
   }, '')
   const { result: val } = jsShell(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`, 'pipe')
   if (!val) {
-    log(chalk.yellow('已取消'))
+    log(colorize({ color: 'yellow', text: '已取消' }))
     return process.exit()
   }
   const { status: _status } = jsShell(getCommand())
   if (_status === 0) {
-    log(chalk.green(`\ncommand ${val} run successfully 🎉`))
+    log(colorize({ color: 'green', text: `\ncommand ${val} run successfully 🎉` }))
     return process.exit()
   }
-  log(chalk.red(`\ncommand ${val} run error ❌`))
+  log(colorize({ color: 'red', text: `\ncommand ${val} run error ❌` }))
 
   function transformScripts(str: string) {
     return keys.find(key => str.startsWith(key))
@@ -172,8 +186,10 @@ export async function ccommand() {
         return (await getData(termStart))[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
     }
     catch (error) {
-      log(chalk.red(`"${argv[0]}" is not found in workspace, current directory 
-or current scripts, please check`))
+      log(colorize({
+        color: 'red', text: `"${argv[0]}" is not found in workspace, current directory 
+or current scripts, please check`,
+      }))
       process.exit()
     }
   }

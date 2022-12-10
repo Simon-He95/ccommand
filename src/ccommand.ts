@@ -16,8 +16,9 @@ interface IParams {
 
 let workspaceNames: string[] = []
 let cacheData: any = null
+const log = console.log
+
 export async function ccommand() {
-  const log = console.log
   const splitFlag = '__ccommand__split'
   const { status } = jsShell('gum -v', 'pipe')
   if (status !== 0) {
@@ -29,105 +30,142 @@ export async function ccommand() {
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
     sudo apt update && sudo apt install gum`)
       if (status !== 0) {
-        const link = terminalLink('the official website of gum', 'https://github.com/charmbracelet/gum#installation')
-        return log(colorize({ color: 'red', text: `gum install error, you can install it yourself through ${colorize({ color: 'yellow', text: link, bold: true })}` }))
+        const link = terminalLink(
+          'the official website of gum',
+          'https://github.com/charmbracelet/gum#installation',
+        )
+        return log(
+          colorize({
+            color: 'red',
+            text: `gum install error, you can install it yourself through ${colorize(
+              { color: 'yellow', text: link, bold: true },
+            )}`,
+          }),
+        )
       }
     }
     log(colorize({ color: 'green', text: 'gum install successfully 🎉' }))
   }
   const argv = process.argv.slice(2)
   if (argv[0] === '-v' || argv[0] === '--version') {
-    return log(colorize({
-      text: `ccommand Version: ${version}`,
-      color: 'green',
-    }))
+    return log(
+      colorize({
+        text: `ccommand Version: ${version}`,
+        color: 'green',
+      }),
+    )
   }
 
   if (argv[0] === '-h' || argv[0] === '--help') {
-    const issueLink = terminalLink('open an issue', 'https://github.com/Simon-He95/ccommand/issues')
-    const starLink = terminalLink('✨star it', 'https://github.com/Simon-He95/ccommand')
-    return log(colorize({
-      color: 'white',
-      text: `
+    const issueLink = terminalLink(
+      'open an issue',
+      'https://github.com/Simon-He95/ccommand/issues',
+    )
+    const starLink = terminalLink(
+      '✨star it',
+      'https://github.com/Simon-He95/ccommand',
+    )
+    return log(
+      colorize({
+        color: 'white',
+        text: `
   ${colorize({
-        bold: true,
-        text: 'Common Commands:',
-        bgColor: 'blue',
-      })}
+    bold: true,
+    text: 'Common Commands:',
+    bgColor: 'blue',
+  })}
   ${colorize({
-        text: `- ccommand -v  查看当前版本
+    text: `- ccommand -v  查看当前版本
   - ccommand -help 查看帮助
   - ccommand 执行当前package.json
   - ccommand find 查找当前workspace的所有目录
       `,
-        color: 'cyan',
-      })}
-  If you encounter any problems, you can ${colorize({ color: 'magenta', text: issueLink })}.
-  If you like it, please ${colorize({ text: starLink, bold: true, color: 'cyan' })} `,
-    }))
+    color: 'cyan',
+  })}
+  If you encounter any problems, you can ${colorize({
+    color: 'magenta',
+    text: issueLink,
+  })}.
+  If you like it, please ${colorize({
+    text: starLink,
+    bold: true,
+    color: 'cyan',
+  })} `,
+      }),
+    )
   }
   const termStart = getPkgTool()
-  if (argv[0]) {
-    try {
-      const pkg = ((await getPkg('./package.json')) || {})?.scripts
-      if (pkg && pkg[argv[0]]) {
-        log(colorize({ text: `ccommand is executing ${colorize({ color: 'cyan', text: `'${argv[0]}'` })} 🤔 `, color: 'yellow' }))
-        let _status
-        switch (termStart) {
-          case 'npm':
-            {
-              const { status } = jsShell(`npm run ${argv[0]}`)
-              _status = status
-              break
-            }
-          case 'pnpm':
-            {
-              const { status } = jsShell(`pnpm run ${argv[0]}`)
-              _status = status
-              break
-            }
-          case 'yarn':
-            {
-              const { status: runStatus } = jsShell(`yarn ${argv[0]}`)
-              _status = runStatus
-              break
-            }
-          case 'bun':
-            {
-              const { status } = jsShell(`bun ${argv[0]}`)
-              _status = status
-              break
-            }
-        }
-        if (_status === 0)
-          return log(colorize({ color: 'green', text: `\ncommand ${argv[0]} run successfully 🎉` }))
-        return log(colorize({ color: 'red', text: `\ncommand ${argv[0]} run error ❌` }))
-      }
-    }
-    catch (error) {
-    }
-  }
 
   const [name, params] = getParams(argv)
   let dirname = name
   if (argv[0] === 'find') {
     if (termStart === 'yarn') {
       await getData(termStart)
-      const { result: choose } = jsShell(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, 'pipe')
+      const { result: choose } = jsShell(
+        `echo ${workspaceNames.join(
+          ',',
+        )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`,
+        'pipe',
+      )
       dirname = choose
       if (!dirname)
-        return console.log(colorize({ color: 'yellow', text: '已取消' }))
+        return log(colorize({ color: 'yellow', text: '已取消' }))
     }
     else if (termStart === 'pnpm') {
       await getData(termStart)
-      const { result: choose } = jsShell(`echo ${workspaceNames.join(',')} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`, 'pipe')
+      const { result: choose } = jsShell(
+        `echo ${workspaceNames.join(
+          ',',
+        )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`,
+        'pipe',
+      )
       dirname = choose.trim()
       if (!dirname)
-        return console.log(colorize({ color: 'yellow', text: '已取消' }))
+        return log(colorize({ color: 'yellow', text: '已取消' }))
     }
-    else { return log(colorize({ color: 'red', text: 'find command only support yarn or pnpm' })) }
+    else {
+      return log(
+        colorize({
+          color: 'red',
+          text: 'find command only support yarn or pnpm',
+        }),
+      )
+    }
   }
+
   const scripts = await getScripts()
+  if (argv[0] && !cacheData[argv[0]]) {
+    try {
+      const pkg = ((await getPkg('./package.json')) || {})?.scripts
+      if (pkg && pkg[argv[0]]) {
+        log(
+          colorize({
+            text: `ccommand is executing ${colorize({
+              color: 'cyan',
+              text: `'${argv[0]}'`,
+            })} 🤔 `,
+            color: 'yellow',
+          }),
+        )
+        return runScript(argv[0])
+      }
+      else if (pkg) {
+        const script = fuzzyMatch(pkg, argv[0])!
+        return runScript(script)
+      }
+    }
+    catch (error) {}
+  }
+  if (!cacheData[argv[0]]) {
+    log(
+      colorize({
+        color: 'red',
+        text: `"${argv[0]}" is not found in workspace, current directory
+      or current scripts, please check`,
+      }),
+    )
+    process.exit()
+  }
   if (!scripts)
     return log(colorize({ color: 'red', text: 'No scripts found' }))
 
@@ -138,14 +176,22 @@ export async function ccommand() {
     result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
     return result
   }, '')
-  const { result: val } = jsShell(`echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`, 'pipe')
+  const { result: val } = jsShell(
+    `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`,
+    'pipe',
+  )
   if (!val) {
     log(colorize({ color: 'yellow', text: '已取消' }))
     return process.exit()
   }
   const { status: _status } = jsShell(getCommand())
   if (_status === 0) {
-    log(colorize({ color: 'green', text: `\ncommand ${val} run successfully 🎉` }))
+    log(
+      colorize({
+        color: 'green',
+        text: `\ncommand ${val} run successfully 🎉`,
+      }),
+    )
     return process.exit()
   }
   log(colorize({ color: 'red', text: `\ncommand ${val} run error ❌` }))
@@ -163,49 +209,119 @@ export async function ccommand() {
     }
     else if (termStart === 'pnpm') {
       prefix = params ? ` ${params}` : ''
-      dir = dirname ? ` --filter ${dirname.slice(dirname.lastIndexOf('/') + 1)} ` : ' '
+      dir = dirname
+        ? ` --filter ${dirname.slice(dirname.lastIndexOf('/') + 1)} `
+        : ' '
     }
     else if (termStart === 'yarn') {
       prefix = params ? ` ${params}` : ''
-      dir = dirname ? ` workspace ${dirname.slice(dirname.lastIndexOf('/') + 1)} ` : ' '
+      dir = dirname
+        ? ` workspace ${dirname.slice(dirname.lastIndexOf('/') + 1)} `
+        : ' '
     }
     else if (termStart === 'bun') {
       prefix = params ? ` ${params}` : ''
       dir = ''
     }
 
-    return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(val)}${prefix}`
+    return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(
+      val,
+    )}${prefix}`
   }
   async function getScripts() {
     try {
       if (!dirname || termStart === 'bun' || termStart === 'npm')
         return (await getPkg('./package.json'))?.scripts
-      if (termStart === 'pnpm')
-        return (await getData(termStart))[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
-      else if (termStart === 'yarn')
-        return (await getData(termStart))[dirname] || (await getPkg(`${dirname}/package.json`))?.scripts
+      if (termStart === 'pnpm') {
+        return (
+          (await getData(termStart))[dirname]
+          || (await getPkg(`${dirname}/package.json`))?.scripts
+        )
+      }
+      else if (termStart === 'yarn') {
+        return (
+          (await getData(termStart))[dirname]
+          || (await getPkg(`${dirname}/package.json`))?.scripts
+        )
+      }
     }
-    catch (error) {
-      log(colorize({
-        color: 'red', text: `"${argv[0]}" is not found in workspace, current directory 
-or current scripts, please check`,
-      }))
-      process.exit()
+    catch (error) {}
+  }
+
+  async function runScript(script: string) {
+    let _status
+    if (argv[0] !== script) {
+      log(
+        colorize({
+          text: `🤔 ${colorize({
+            text: argv[0],
+            color: 'cyan',
+          })} automatically match for you to ${colorize({
+            text: script,
+            color: 'cyan',
+          })} `,
+          color: 'yellow',
+        }),
+      )
     }
+
+    switch (termStart) {
+      case 'npm': {
+        const { status } = jsShell(`npm run ${script}`)
+        _status = status
+        break
+      }
+      case 'pnpm': {
+        const { status } = jsShell(`pnpm run ${script}`)
+        _status = status
+        break
+      }
+      case 'yarn': {
+        const { status: runStatus } = jsShell(`yarn ${script}`)
+        _status = runStatus
+        break
+      }
+      case 'bun': {
+        const { status } = jsShell(`bun ${script}`)
+        _status = status
+        break
+      }
+    }
+    if (_status === 0) {
+      return log(
+        colorize({
+          color: 'green',
+          text: `\ncommand ${script} run successfully 🎉`,
+        }),
+      )
+    }
+    return log(
+      colorize({ color: 'red', text: `\ncommand ${script} run error ❌` }),
+    )
   }
 }
 
 async function getData(type: 'pnpm' | 'yarn') {
   if (cacheData)
     return cacheData
-  const workspace = type === 'pnpm'
-    ? await fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf-8')
-    : await fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8')
-  const packages = type === 'pnpm'
-    ? YAML.parse(workspace)?.packages || []
-    : JSON.parse(workspace)?.workspaces || []
+  const workspace
+    = type === 'pnpm'
+      ? await fs.readFileSync(
+        path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
+        'utf-8',
+      )
+      : await fs.readFileSync(
+        path.resolve(process.cwd(), 'package.json'),
+        'utf-8',
+      )
+  const packages
+    = type === 'pnpm'
+      ? YAML.parse(workspace)?.packages || []
+      : JSON.parse(workspace)?.workspaces || []
   cacheData = (await readGlob(packages)) || {}
-  workspaceNames = Object.keys(cacheData).filter(key => cacheData[key] && Object.keys(cacheData[key]).length)
+  workspaceNames = Object.keys(cacheData).filter(
+    key => cacheData[key] && Object.keys(cacheData[key]).length,
+  )
   return cacheData
 }
 
@@ -221,17 +337,40 @@ function getParams(params: string[]): [string, string] {
 async function readGlob(packages: string[]) {
   if (!packages.length)
     return
-  const entries = await fg(packages.map(v => `${v}/package.json`), { dot: true, ignore: ['**/node_modules/**'] })
-  return Promise.all(entries.map(async (v) => {
-    const pkg = await getPkg(v)
-    if (!pkg)
-      return
-    const { name, scripts } = pkg
-    return { name, scripts }
-  }) as Promise<IParams>[]).then(v => v.reduce((result, v) => {
-    const { name, scripts } = v
-    result[name] = scripts
-    return result
-  }, {} as Record<string, Record<string, string>>))
+  const entries = await fg(
+    packages.map(v => `${v}/package.json`),
+    { dot: true, ignore: ['**/node_modules/**'] },
+  )
+  return Promise.all(
+    entries.map(async (v) => {
+      const pkg = await getPkg(v)
+      if (!pkg)
+        return
+      const { name, scripts } = pkg
+      return { name, scripts }
+    }) as Promise<IParams>[],
+  ).then(v =>
+    v.reduce((result, v) => {
+      const { name, scripts } = v
+      result[name] = scripts
+      return result
+    }, {} as Record<string, Record<string, string>>),
+  )
 }
+
+function fuzzyMatch(scripts: Record<string, string>, params: string) {
+  const keys = Object.keys(scripts)
+  const result = keys.find(key => key.startsWith(params))
+  if (result)
+    return result
+  try {
+    const reg = new RegExp(params.split('').join('[_-\\w$.:]*'))
+    return keys.find(key => reg.test(key))
+  }
+  catch (error) {
+    log(colorize({ text: `RegExp error: ${error}`, color: 'red' }))
+    process.exit(1)
+  }
+}
+
 ccommand()

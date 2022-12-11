@@ -17,4 +17,3 @@ describe('Counter.vue', () => {
     expect(wrapper.text()).toContain('1')
   })
 })
-

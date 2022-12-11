@@ -134,7 +134,7 @@ export async function ccommand() {
   }
 
   const scripts = await getScripts()
-  if (argv[0] && !cacheData[argv[0]]) {
+  if (argv[0] && cacheData && !cacheData[argv[0]]) {
     try {
       const pkg = ((await getPkg('./package.json')) || {})?.scripts
       if (pkg && pkg[argv[0]]) {
@@ -156,7 +156,7 @@ export async function ccommand() {
     }
     catch (error) {}
   }
-  if (!cacheData[argv[0]]) {
+  if (cacheData && !cacheData[argv[0]]) {
     log(
       colorize({
         color: 'red',

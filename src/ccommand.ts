@@ -134,7 +134,8 @@ export async function ccommand() {
   }
 
   const scripts = await getScripts()
-  if (argv[0] && cacheData && !cacheData[argv[0]]) {
+
+  if ((argv[0] && cacheData && !cacheData[argv[0]]) || !cacheData) {
     try {
       const pkg = ((await getPkg('./package.json')) || {})?.scripts
       if (pkg && pkg[argv[0]]) {
@@ -149,7 +150,7 @@ export async function ccommand() {
         )
         return runScript(argv[0])
       }
-      else if (pkg) {
+      else if (pkg && argv[0]) {
         const script = fuzzyMatch(pkg, argv[0])!
         return runScript(script)
       }
@@ -189,12 +190,12 @@ export async function ccommand() {
     log(
       colorize({
         color: 'green',
-        text: `\ncommand ${val} run successfully 🎉`,
+        text: `\ncommand '${val}' run successfully 🎉`,
       }),
     )
     return process.exit()
   }
-  log(colorize({ color: 'red', text: `\ncommand ${val} run error ❌` }))
+  log(colorize({ color: 'red', text: `\ncommand '${val}' run error ❌` }))
 
   function transformScripts(str: string) {
     return keys.find(key => str.startsWith(key))
@@ -250,14 +251,14 @@ export async function ccommand() {
 
   async function runScript(script: string) {
     let _status
-    if (argv[0] !== script) {
+    if (script && argv[0] !== script) {
       log(
         colorize({
           text: `🤔 ${colorize({
-            text: argv[0],
+            text: `'${argv[0]}'`,
             color: 'cyan',
           })} automatically match for you to ${colorize({
-            text: script,
+            text: `'${script}'`,
             color: 'cyan',
           })} `,
           color: 'yellow',
@@ -291,12 +292,19 @@ export async function ccommand() {
       return log(
         colorize({
           color: 'green',
-          text: `\ncommand ${script} run successfully 🎉`,
+          text: `\ncommand '${script}' run successfully 🎉`,
         }),
       )
     }
     return log(
-      colorize({ color: 'red', text: `\ncommand ${script} run error ❌` }),
+      colorize({
+        color: 'red',
+        text: `\ncommand ${colorize({
+          bold: true,
+          color: 'cyan',
+          text: `'${script || argv[0]}'`,
+        })} run error ❌`,
+      }),
     )
   }
 }

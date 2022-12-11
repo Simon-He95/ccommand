@@ -33,7 +33,6 @@
     "dist"
   ],
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
     "postinstall": "simple-git-hooks",
     "build": "pkgroll --minify",
     "dev": "pkgroll --watch",

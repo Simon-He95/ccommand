@@ -98,6 +98,7 @@ export async function ccommand() {
 
   const [name, params] = getParams(argv)
   let dirname = name
+  let scripts: Record<string, string>
   if (argv[0] === 'find') {
     if (termStart === 'yarn') {
       await getData(termStart)
@@ -131,43 +132,46 @@ export async function ccommand() {
         }),
       )
     }
+    scripts = await getScripts()
   }
+  else {
+    scripts = await getScripts()
 
-  const scripts = await getScripts()
-
-  if ((argv[0] && cacheData && !cacheData[argv[0]]) || !cacheData) {
-    try {
-      const pkg = ((await getPkg('./package.json')) || {})?.scripts
-      if (pkg && pkg[argv[0]]) {
-        log(
-          colorize({
-            text: `ccommand is executing ${colorize({
-              color: 'cyan',
-              text: `'${argv[0]}'`,
-            })} 🤔 `,
-            color: 'yellow',
-          }),
-        )
-        return runScript(argv[0], argv.slice(1).join(' '))
+    if ((argv[0] && cacheData && !cacheData[argv[0]]) || !cacheData) {
+      try {
+        const pkg = ((await getPkg('./package.json')) || {})?.scripts
+        if (pkg && pkg[argv[0]]) {
+          log(
+            colorize({
+              text: `ccommand is executing ${colorize({
+                color: 'cyan',
+                text: `'${argv[0]}'`,
+              })} 🤔 `,
+              color: 'yellow',
+            }),
+          )
+          return runScript(argv[0], argv.slice(1).join(' '))
+        }
+        else if (pkg && argv[0]) {
+          const script = fuzzyMatch(pkg, argv[0])!
+          const prefix = argv.slice(1).join(' ')
+          return runScript(script, prefix)
+        }
       }
-      else if (pkg && argv[0]) {
-        const script = fuzzyMatch(pkg, argv[0])!
-        const prefix = argv.slice(1).join(' ')
-        return runScript(script, prefix)
-      }
+      catch (error) {}
     }
-    catch (error) {}
-  }
-  if (cacheData && !cacheData[argv[0]]) {
-    log(
-      colorize({
-        color: 'red',
-        text: `"${argv[0]}" is not found in workspace, current directory
+    if (cacheData && !cacheData[argv[0]]) {
+      log(
+        colorize({
+          color: 'red',
+          text: `"${argv[0]}" is not found in workspace, current directory
       or current scripts, please check`,
-      }),
-    )
-    process.exit()
+        }),
+      )
+      process.exit()
+    }
   }
+
   if (!scripts)
     return log(colorize({ color: 'red', text: 'No scripts found' }))
 
@@ -178,10 +182,11 @@ export async function ccommand() {
     result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
     return result
   }, '')
-  const { result: val } = jsShell(
-    `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令" | cut -d' ' -f1`,
+  let { result: val } = jsShell(
+    `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
     'pipe',
   )
+  val = val.substring(0, val.indexOf(': '))
   if (!val) {
     log(colorize({ color: 'yellow', text: '已取消' }))
     return process.exit()
@@ -300,7 +305,7 @@ export async function ccommand() {
         colorize({
           color: 'green',
           text: `\ncommand '${script}${
-            prefix ? +'' + prefix : ''
+            prefix ? ` ${prefix}` : ''
           }' run successfully 🎉`,
         }),
       )

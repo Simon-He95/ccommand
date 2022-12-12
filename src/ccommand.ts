@@ -148,11 +148,12 @@ export async function ccommand() {
             color: 'yellow',
           }),
         )
-        return runScript(argv[0])
+        return runScript(argv[0], argv.slice(1).join(' '))
       }
       else if (pkg && argv[0]) {
         const script = fuzzyMatch(pkg, argv[0])!
-        return runScript(script)
+        const prefix = argv.slice(1).join(' ')
+        return runScript(script, prefix)
       }
     }
     catch (error) {}
@@ -249,7 +250,7 @@ export async function ccommand() {
     catch (error) {}
   }
 
-  async function runScript(script: string) {
+  async function runScript(script: string, prefix: string) {
     let _status
     if (script && argv[0] !== script) {
       log(
@@ -258,7 +259,7 @@ export async function ccommand() {
             text: `'${argv[0]}'`,
             color: 'cyan',
           })} automatically match for you to ${colorize({
-            text: `'${script}'`,
+            text: `'${script} ${prefix}'`,
             color: 'cyan',
           })} `,
           color: 'yellow',
@@ -268,22 +269,28 @@ export async function ccommand() {
 
     switch (termStart) {
       case 'npm': {
-        const { status } = jsShell(`npm run ${script}`)
+        const { status } = jsShell(
+          `npm run ${script}${prefix ? ` --${prefix}` : ''}`,
+        )
         _status = status
         break
       }
       case 'pnpm': {
-        const { status } = jsShell(`pnpm run ${script}`)
+        const { status } = jsShell(
+          `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
+        )
         _status = status
         break
       }
       case 'yarn': {
-        const { status: runStatus } = jsShell(`yarn ${script}`)
+        const { status: runStatus } = jsShell(
+          `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
+        )
         _status = runStatus
         break
       }
       case 'bun': {
-        const { status } = jsShell(`bun ${script}`)
+        const { status } = jsShell(`bun ${script} ${prefix}`)
         _status = status
         break
       }
@@ -292,7 +299,7 @@ export async function ccommand() {
       return log(
         colorize({
           color: 'green',
-          text: `\ncommand '${script}' run successfully 🎉`,
+          text: `\ncommand '${script} ${prefix}' run successfully 🎉`,
         }),
       )
     }
@@ -302,7 +309,7 @@ export async function ccommand() {
         text: `\ncommand ${colorize({
           bold: true,
           color: 'cyan',
-          text: `'${script || argv[0]}'`,
+          text: `'${script || argv[0]}${prefix ? ` ${prefix}` : ''}'`,
         })} run error ❌`,
       }),
     )

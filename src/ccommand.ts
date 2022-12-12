@@ -259,7 +259,7 @@ export async function ccommand() {
             text: `'${argv[0]}'`,
             color: 'cyan',
           })} automatically match for you to ${colorize({
-            text: `'${script} ${prefix}'`,
+            text: `'${script}${prefix ? ` ${prefix}` : ''}'`,
             color: 'cyan',
           })} `,
           color: 'yellow',
@@ -270,7 +270,7 @@ export async function ccommand() {
     switch (termStart) {
       case 'npm': {
         const { status } = jsShell(
-          `npm run ${script}${prefix ? ` --${prefix}` : ''}`,
+          `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
         )
         _status = status
         break
@@ -299,7 +299,9 @@ export async function ccommand() {
       return log(
         colorize({
           color: 'green',
-          text: `\ncommand '${script} ${prefix}' run successfully 🎉`,
+          text: `\ncommand '${script}${
+            prefix ? +'' + prefix : ''
+          }' run successfully 🎉`,
         }),
       )
     }

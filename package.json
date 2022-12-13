@@ -54,7 +54,7 @@
     "@vueuse/core": "^8.1.1",
     "chalk": "^5.1.2",
     "fast-glob": "^3.2.12",
-    "simon-js-tool": "^4.1.21",
+    "lazy-js-utils": "^0.0.5",
     "terminal-link": "^3.0.0",
     "vue": "^3.2.36",
     "yamljs": "^0.3.0"

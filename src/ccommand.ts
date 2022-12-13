@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { getPkg, getPkgTool, jsShell } from 'simon-js-tool'
+import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils'
 import fg from 'fast-glob'
 import terminalLink from 'terminal-link'
 import colorize from '@simon_he/colorize'

@@ -14,11 +14,11 @@ importers:
       eslint: ^8.16.0
       eslint-plugin-n: ^15.2.1
       fast-glob: ^3.2.12
+      lazy-js-utils: ^0.0.5
       lint-staged: ^13.1.0
       picocolors: ^1.0.0
       pkgroll: ^1.3.1
       prettier: ^2.8.1
-      simon-js-tool: ^4.1.21
       simple-git-hooks: ^2.8.1
       terminal-link: ^3.0.0
       tsx: ^3.12.1
@@ -32,7 +32,7 @@ importers:
       '@vueuse/core': 8.9.4_vue@3.2.41
       chalk: 5.1.2
       fast-glob: 3.2.12
-      simon-js-tool: 4.1.21
+      lazy-js-utils: 0.0.5
       terminal-link: 3.0.0
       vue: 3.2.41
       yamljs: 0.3.0
@@ -3566,6 +3566,18 @@ packages:
     resolution: {integrity: sha512-dLkz37Ab97HWMx9KTes3Tbi3D1ln9fCAy2zr2YVExJasDRPGRaKcoE4fycWNtnCAJfjFqe0cnY+f8KT2JePEXQ==}
     dev: true
 
+  /lazy-js-utils/0.0.5:
+    resolution: {integrity: sha512-+dVcWTnYKYTOA2SXp+24cLy+idDirJwTM/YQ6H/JJ9d05s7QZMDhXoiJVr3w+wFkoQPmI7bJKGAZbpFYSnKQSw==}
+    dependencies:
+      '@vueuse/core': 8.9.4_vue@3.2.41
+      htmlparser2: 8.0.1
+      qrcode: 1.5.1
+      spark-md5: 3.0.2
+      vue: 3.2.41
+    transitivePeerDependencies:
+      - '@vue/composition-api'
+    dev: false
+
   /levn/0.3.0:
     resolution: {integrity: sha512-0OO4y2iOHix2W6ujICbKIaEQXvFQHue65vUG3pb5EUomzPI90z9hsA1VsO/dbIIpC53J8gxM9Q4Oho0jrCM/yA==}
     engines: {node: '>= 0.8.0'}
@@ -4423,18 +4435,6 @@ packages:
   /signal-exit/3.0.7:
     resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
     dev: true
-
-  /simon-js-tool/4.1.21:
-    resolution: {integrity: sha512-RYKgHV3GouPXpOq3YB7sfXJ002KPSoduDrUP/X2WzTh05Ovx9bl/ogxC9gljXV4NNTUMpLOlWRLc6GcA2nawUg==}
-    dependencies:
-      '@vueuse/core': 8.9.4_vue@3.2.41
-      htmlparser2: 8.0.1
-      qrcode: 1.5.1
-      spark-md5: 3.0.2
-      vue: 3.2.41
-    transitivePeerDependencies:
-      - '@vue/composition-api'
-    dev: false
 
   /simple-git-hooks/2.8.1:
     resolution: {integrity: sha512-DYpcVR1AGtSfFUNzlBdHrQGPsOhuuEJ/FkmPOOlFysP60AHd3nsEpkGq/QEOdtUyT1Qhk7w9oLmFoMG+75BDog==}

@@ -7,7 +7,7 @@ importers:
       '@antfu/eslint-config': ^0.34.0
       '@simon_he/colorize': ^0.0.1
       '@types/node': ^17.0.45
-      '@vitejs/plugin-vue': ^3.0.1
+      '@vitejs/plugin-vue': ^4.0.0
       '@vueuse/core': ^8.1.1
       bumpp: ^8.2.1
       chalk: ^5.1.2
@@ -39,7 +39,7 @@ importers:
     devDependencies:
       '@antfu/eslint-config': 0.34.0_eslint@8.25.0+typescript@4.8.4
       '@types/node': 17.0.45
-      '@vitejs/plugin-vue': 3.1.2_vite@3.1.8+vue@3.2.41
+      '@vitejs/plugin-vue': 4.0.0_vite@3.1.8+vue@3.2.41
       bumpp: 8.2.1
       eslint: 8.25.0
       eslint-plugin-n: 15.3.0_eslint@8.25.0
@@ -149,7 +149,7 @@ importers:
       '@iconify-json/carbon': ^1.1.2
       '@types/node': ^17.0.21
       '@unocss/reset': ^0.48.0
-      '@vitejs/plugin-vue': ^3.0.1
+      '@vitejs/plugin-vue': ^4.0.0
       '@vue/test-utils': ^2.0.0-rc.18
       '@vueuse/core': ^8.1.1
       eslint: ^8.11.0
@@ -174,7 +174,7 @@ importers:
       '@iconify-json/carbon': 1.1.9
       '@types/node': 17.0.45
       '@unocss/reset': 0.48.0
-      '@vitejs/plugin-vue': 3.1.2_vite@3.1.8+vue@3.2.41
+      '@vitejs/plugin-vue': 4.0.0_vite@3.1.8+vue@3.2.41
       '@vue/test-utils': 2.1.0_vue@3.2.41
       eslint: 8.25.0
       jsdom: 19.0.0
@@ -1334,6 +1334,17 @@ packages:
     engines: {node: ^14.18.0 || >=16.0.0}
     peerDependencies:
       vite: ^3.0.0
+      vue: ^3.2.25
+    dependencies:
+      vite: 3.1.8
+      vue: 3.2.41
+    dev: true
+
+  /@vitejs/plugin-vue/4.0.0_vite@3.1.8+vue@3.2.41:
+    resolution: {integrity: sha512-e0X4jErIxAB5oLtDqbHvHpJe/uWNkdpYV83AOG2xo2tEVSzCzewgJMtREZM30wXnM5ls90hxiOtAuVU6H5JgbA==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    peerDependencies:
+      vite: ^4.0.0
       vue: ^3.2.25
     dependencies:
       vite: 3.1.8

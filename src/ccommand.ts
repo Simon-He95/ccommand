@@ -109,6 +109,7 @@ export async function ccommand() {
         'pipe',
       )
       dirname = choose
+      console.log({ dirname })
       if (!dirname)
         return log(colorize({ color: 'yellow', text: '已取消' }))
     }
@@ -216,15 +217,11 @@ export async function ccommand() {
     }
     else if (termStart === 'pnpm') {
       prefix = params ? ` ${params}` : ''
-      dir = dirname
-        ? ` --filter ${dirname.slice(dirname.lastIndexOf('/') + 1)} `
-        : ' '
+      dir = dirname ? ` --filter ${dirname} ` : ' '
     }
     else if (termStart === 'yarn') {
       prefix = params ? ` ${params}` : ''
-      dir = dirname
-        ? ` workspace ${dirname.slice(dirname.lastIndexOf('/') + 1)} `
-        : ' '
+      dir = dirname ? ` workspace ${dirname} ` : ' '
     }
     else if (termStart === 'bun') {
       prefix = params ? ` ${params}` : ''

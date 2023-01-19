@@ -109,7 +109,6 @@ export async function ccommand() {
         'pipe',
       )
       dirname = choose
-      console.log({ dirname })
       if (!dirname)
         return log(colorize({ color: 'yellow', text: '已取消' }))
     }

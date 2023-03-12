@@ -370,6 +370,9 @@ async function readGlob(packages: string[]) {
   ).then(v =>
     v.reduce((result, v) => {
       const { name, scripts } = v
+      // 过滤没有scripts或name的子包
+      if (!name || !scripts)
+        return result
       result[name] = scripts
       return result
     }, {} as Record<string, Record<string, string>>),

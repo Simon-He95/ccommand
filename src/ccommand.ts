@@ -96,47 +96,56 @@ export async function ccommand() {
   }
   const termStart = getPkgTool()
 
-  const [name, params] = getParams(argv)
+  const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
   let scripts: Record<string, string>
   if (argv[0] === 'find') {
-    if (termStart === 'yarn') {
-      await getData(termStart)
-      const { result: choose } = jsShell(
-        `echo ${workspaceNames.join(
-          ',',
-        )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`,
-        'pipe',
-      )
-      dirname = choose
-      if (!dirname)
-        return log(colorize({ color: 'yellow', text: '已取消' }))
-    }
-    else if (termStart === 'pnpm') {
-      await getData(termStart)
-      const { result: choose } = jsShell(
-        `echo ${workspaceNames.join(
-          ',',
-        )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`,
-        'pipe',
-      )
-      dirname = choose.trim()
-      if (!dirname)
-        return log(colorize({ color: 'yellow', text: '已取消' }))
+    if (fuzzyWorkspace) {
+      await getData(termStart as any)
+      dirname = workspaceNames.filter(name =>
+        name.includes(fuzzyWorkspace),
+      )[0]
     }
     else {
-      return log(
-        colorize({
-          color: 'red',
-          text: 'find command only support yarn or pnpm',
-        }),
-      )
+      if (termStart === 'yarn') {
+        await getData(termStart)
+        const { result: choose } = jsShell(
+          `echo ${workspaceNames.join(
+            ',',
+          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`,
+          'pipe',
+        )
+        dirname = choose
+        if (!dirname)
+          return log(colorize({ color: 'yellow', text: '已取消' }))
+      }
+      else if (termStart === 'pnpm') {
+        await getData(termStart)
+        log({ workspaceNames })
+        const { result: choose } = jsShell(
+          `echo ${workspaceNames.join(
+            ',',
+          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的目录"`,
+          'pipe',
+        )
+        dirname = choose.trim()
+        if (!dirname)
+          return log(colorize({ color: 'yellow', text: '已取消' }))
+      }
+      else {
+        return log(
+          colorize({
+            color: 'red',
+            text: 'find command only support yarn or pnpm',
+          }),
+        )
+      }
     }
+
     scripts = await getScripts()
   }
   else {
     scripts = await getScripts()
-
     if ((argv[0] && cacheData && !cacheData[argv[0]]) || !cacheData) {
       try {
         const pkg = ((await getPkg('./package.json')) || {})?.scripts
@@ -176,27 +185,37 @@ export async function ccommand() {
     return log(colorize({ color: 'red', text: 'No scripts found' }))
 
   const keys: string[] = []
-  const options = Object.keys(scripts).reduce((result, key) => {
-    const value = scripts[key]
-    keys.push(key)
-    result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
-    return result
-  }, '')
-  let { result: val } = jsShell(
-    `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
-    'pipe',
-  )
-  val = val.substring(0, val.indexOf(': '))
-  if (!val) {
+  let val = ''
+  if (
+    !fuzzyWorkspace
+    || (argv[0] === 'find' && (!argv[2] || argv[2].startsWith('--')))
+  ) {
+    const options = Object.keys(scripts).reduce((result, key) => {
+      const value = scripts[key]
+      keys.push(key)
+      result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
+      return result
+    }, '')
+    const { result } = jsShell(
+      `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
+      'pipe',
+    )
+    val = result.substring(0, result.indexOf(': '))
+  }
+
+  if (!fuzzyWorkspace && !val) {
     log(colorize({ color: 'yellow', text: '已取消' }))
     return process.exit()
   }
-  const { status: _status } = jsShell(getCommand())
+
+  const { status: _status } = await jsShell(getCommand())
   if (_status === 0) {
     log(
       colorize({
         color: 'green',
-        text: `\ncommand '${val}' run successfully 🎉`,
+        text: `\ncommand '${
+          (argv[0] === 'find' ? argv[2] : argv[1]) || val
+        }' run successfully 🎉`,
       }),
     )
     return process.exit()
@@ -226,11 +245,20 @@ export async function ccommand() {
       prefix = params ? ` ${params}` : ''
       dir = ''
     }
+    let command = ''
 
-    return `${termStart}${withRun ? ' run' : ' '}${dir}${transformScripts(
-      val,
-    )}${prefix}`
+    if (prefix && !prefix.startsWith(' --')) {
+      const _all = prefix.split(' ').filter(Boolean)
+      command = _all[0]
+      prefix = _all.slice(1).join(' ')
+    }
+    const result = `${termStart}${withRun ? ' run' : ' '}${dir} ${
+      command || (val ? transformScripts(val) || val : fuzzyWorkspace)
+    } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
+    val = `${command || (val ? transformScripts(val) : fuzzyWorkspace)}`
+    return result
   }
+
   async function getScripts() {
     try {
       if (!dirname || termStart === 'bun' || termStart === 'npm')
@@ -249,6 +277,12 @@ export async function ccommand() {
       }
     }
     catch (error) {}
+  }
+
+  function isNeedPrefix(prefix: string) {
+    if (argv[0] === 'find')
+      return argv[1] && prefix
+    else return argv[1] && prefix
   }
 
   async function runScript(script: string, prefix: string) {
@@ -343,13 +377,13 @@ async function getData(type: 'pnpm' | 'yarn') {
   return cacheData
 }
 
-function getParams(params: string[]): [string, string] {
+function getParams(params: string[]): [string, string, string] {
   const first = params[0]
   if (!first)
-    return ['', '']
+    return ['', '', '']
   if (first.startsWith('--'))
-    return ['', params.join(' ')]
-  return [first, params.slice(1).join(' ')]
+    return ['', '', params.join(' ')]
+  return [first, params[1], params.slice(2).join(' ')]
 }
 
 async function readGlob(packages: string[]) {

@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils'
 import fg from 'fast-glob'
-import terminalLink from 'terminal-link'
 import colorize from '@simon_he/colorize'
+import terminalLink from 'terminal-link'
 import { version } from '../package.json'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -121,7 +121,6 @@ export async function ccommand() {
       }
       else if (termStart === 'pnpm') {
         await getData(termStart)
-        log({ workspaceNames })
         const { result: choose } = jsShell(
           `echo ${workspaceNames.join(
             ',',
@@ -146,7 +145,7 @@ export async function ccommand() {
   }
   else {
     scripts = await getScripts()
-    if ((argv[0] && cacheData && !cacheData[argv[0]]) || !cacheData) {
+    if ((name && cacheData && !cacheData[name]) || !cacheData) {
       try {
         const pkg = ((await getPkg('./package.json')) || {})?.scripts
         if (pkg && pkg[argv[0]]) {
@@ -161,7 +160,7 @@ export async function ccommand() {
           )
           return runScript(argv[0], argv.slice(1).join(' '))
         }
-        else if (pkg && argv[0]) {
+        else if (pkg && name) {
           const script = fuzzyMatch(pkg, argv[0])!
           const prefix = argv.slice(1).join(' ')
           return runScript(script, prefix)
@@ -256,6 +255,25 @@ export async function ccommand() {
       command || (val ? transformScripts(val) || val : fuzzyWorkspace)
     } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
     val = `${command || (val ? transformScripts(val) : fuzzyWorkspace)}`
+    if (argv[0] === 'find') {
+      log(
+        colorize({
+          text: `tips: pfind ${dirname} ${val} ${prefix}`.replace(/\s+/g, ' '),
+          color: 'blue',
+          bold: true,
+        }),
+      )
+    }
+    else {
+      log(
+        colorize({
+          text: `tips: prun ${val} ${prefix}`.replace(/\s+/g, ' '),
+          color: 'blue',
+          bold: true,
+        }),
+      )
+    }
+
     return result
   }
 
@@ -383,6 +401,9 @@ function getParams(params: string[]): [string, string, string] {
     return ['', '', '']
   if (first.startsWith('--'))
     return ['', '', params.join(' ')]
+  if (params[1] && params[1].startsWith('--'))
+    return [first, '', params.slice(1).join(' ')]
+
   return [first, params[1], params.slice(2).join(' ')]
 }
 

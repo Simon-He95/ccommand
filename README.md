@@ -22,6 +22,11 @@ ccommand # 执行当前script
 ccommand -help # 查看帮助
 ```
 
+## 新特性 ｜ Feature
+
+when you run command with search the quick command will be output with tips
+当你使用命令通过查找执行, 会在终端输出一个快速执行命令的提示
+
 ## 使用 | Usage
 
 - ccommand 选取当前目录下的 package.json 文件中的 scripts 中的命令

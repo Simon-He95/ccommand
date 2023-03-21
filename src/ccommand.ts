@@ -222,7 +222,9 @@ export async function ccommand() {
   log(colorize({ color: 'red', text: `\ncommand '${val}' run error ❌` }))
 
   function transformScripts(str: string) {
-    return keys.find(key => str.startsWith(key))
+    return (
+      keys.find(key => key === str) ?? keys.find(key => str.startsWith(key))
+    )
   }
   function getCommand(): string {
     let dir = ''

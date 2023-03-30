@@ -1,10 +1,11 @@
-import fs from 'fs'
+import fs from 'fs/promises'
 import path from 'path'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils'
 import fg from 'fast-glob'
 import colorize from '@simon_he/colorize'
 import terminalLink from 'terminal-link'
 import { version } from '../package.json'
+import { gumInstall } from './gumInstall'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
@@ -20,32 +21,7 @@ const log = console.log
 const splitFlag = '__ccommand__split'
 
 export async function ccommand() {
-  const { status } = jsShell('gum -v', 'pipe')
-  if (status !== 0) {
-    log(colorize({ color: 'blue', text: 'install gum...' }))
-    const { status } = jsShell('brew install gum')
-    if (status !== 0) {
-      const { status } = jsShell(`sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-    sudo apt update && sudo apt install gum`)
-      if (status !== 0) {
-        const link = terminalLink(
-          'the official website of gum',
-          'https://github.com/charmbracelet/gum#installation',
-        )
-        return log(
-          colorize({
-            color: 'red',
-            text: `gum install error, you can install it yourself through ${colorize(
-              { color: 'yellow', text: link, bold: true },
-            )}`,
-          }),
-        )
-      }
-    }
-    log(colorize({ color: 'green', text: 'gum install successfully 🎉' }))
-  }
+  gumInstall()
   const argv = process.argv.slice(2)
   if (argv[0] === '-v' || argv[0] === '--version') {
     return log(
@@ -378,14 +354,11 @@ async function getData(type: 'pnpm' | 'yarn') {
     return cacheData
   const workspace
     = type === 'pnpm'
-      ? await fs.readFileSync(
+      ? await fs.readFile(
         path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
         'utf-8',
       )
-      : await fs.readFileSync(
-        path.resolve(process.cwd(), 'package.json'),
-        'utf-8',
-      )
+      : await fs.readFile(path.resolve(process.cwd(), 'package.json'), 'utf-8')
   const packages
     = type === 'pnpm'
       ? YAML.parse(workspace)?.packages || []

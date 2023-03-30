@@ -17,9 +17,9 @@ interface IParams {
 let workspaceNames: string[] = []
 let cacheData: any = null
 const log = console.log
+const splitFlag = '__ccommand__split'
 
 export async function ccommand() {
-  const splitFlag = '__ccommand__split'
   const { status } = jsShell('gum -v', 'pipe')
   if (status !== 0) {
     log(colorize({ color: 'blue', text: 'install gum...' }))

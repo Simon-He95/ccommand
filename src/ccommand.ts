@@ -1,6 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils'
+import { getPkg, getPkgTool, isPlainObject, jsShell } from 'lazy-js-utils'
 import fg from 'fast-glob'
 import colorize from '@simon_he/colorize'
 import terminalLink from 'terminal-link'
@@ -359,10 +359,16 @@ async function getData(type: 'pnpm' | 'yarn') {
         'utf-8',
       )
       : await fs.readFile(path.resolve(process.cwd(), 'package.json'), 'utf-8')
-  const packages
-    = type === 'pnpm'
-      ? YAML.parse(workspace)?.packages || []
-      : JSON.parse(workspace)?.workspaces || []
+  let packages
+  if (type === 'pnpm') {
+    packages = YAML.parse(workspace)?.packages || []
+  }
+  else {
+    const _workspace = JSON.parse(workspace)?.workspaces
+    if (isPlainObject(_workspace))
+      packages = _workspace?.packages
+    else packages = _workspace || []
+  }
   cacheData = (await readGlob(packages)) || {}
   workspaceNames = Object.keys(cacheData).filter(
     key => cacheData[key] && Object.keys(cacheData[key]).length,

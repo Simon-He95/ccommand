@@ -10,16 +10,27 @@
 ## 安装 | Install
 
 ```bash
-npm install -g ccommand # 安装ccommand
+npm install -g ccommand # 安装ccommand install ccommand
 ```
 
 ## 指令 ｜ Command
 
 ```bash
-ccommand -v # 查看版本
-ccommand find # 查找workspace
-ccommand # 执行当前script
-ccommand -help # 查看帮助
+ccommand -v # 查看版本 view version
+ccommand find # 查找workspace find workspace
+ccommand # 执行当前script Execute the current script
+ccommand -help # 查看帮助 view help
+```
+
+## 语言 ｜ Language
+
+```
+# 导出环境变量在你的bash或者zsh中 Export environment variables in your bash or zsh
+# 中文 Chinese
+export PI_Lang=zh
+# 英文 English
+export PI_Lang=zh
+
 ```
 
 ## 新特性 ｜ Feature

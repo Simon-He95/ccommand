@@ -2,10 +2,15 @@ import colorize from '@simon_he/colorize'
 import { jsShell } from 'lazy-js-utils'
 import terminalLink from 'terminal-link'
 const log = console.log
-export function gumInstall() {
+export function gumInstall(isZh: boolean) {
   const { status } = jsShell('gum -v', 'pipe')
   if (status !== 0) {
-    log(colorize({ color: 'blue', text: 'install gum...' }))
+    log(
+      colorize({
+        color: 'blue',
+        text: isZh ? '正在为您安装gum...' : 'install gum...',
+      }),
+    )
     const { status } = jsShell('brew install gum')
     if (status !== 0) {
       const { status } = jsShell(`sudo mkdir -p /etc/apt/keyrings
@@ -14,19 +19,26 @@ export function gumInstall() {
     sudo apt update && sudo apt install gum`)
       if (status !== 0) {
         const link = terminalLink(
-          'the official website of gum',
+          isZh ? 'gum官网链接' : 'the official website of gum',
           'https://github.com/charmbracelet/gum#installation',
         )
         return log(
           colorize({
             color: 'red',
-            text: `gum install error, you can install it yourself through ${colorize(
-              { color: 'yellow', text: link, bold: true },
-            )}`,
+            text: `${
+              isZh
+                ? 'gum安装失败,你可以自行从以下链接安装'
+                : 'gum install error, you can install it yourself through'
+            } ${colorize({ color: 'yellow', text: link, bold: true })}`,
           }),
         )
       }
     }
-    log(colorize({ color: 'green', text: 'gum install successfully 🎉' }))
+    log(
+      colorize({
+        color: 'green',
+        text: isZh ? 'gum安装成功  🎉' : 'gum install successfully 🎉',
+      }),
+    )
   }
 }

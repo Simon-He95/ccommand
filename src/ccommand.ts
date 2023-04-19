@@ -23,6 +23,12 @@ const isZh = process.env.PI_Lang === 'zh'
 
 export async function ccommand() {
   gumInstall(isZh)
+  const cancelledText = isZh ? '已取消' : 'Cancelled'
+  const noworkspacText = isZh
+    ? '当前目录不存在任何子目录'
+    : 'The current directory does not have any subdirectories'
+  const successText = isZh ? '运行成功' : 'run successfully'
+  const failedText = isZh ? '运行失败' : 'run error'
   const argv = process.argv.slice(2)
   if (argv[0] === '-v' || argv[0] === '--version') {
     return log(
@@ -88,11 +94,9 @@ export async function ccommand() {
     else {
       if (termStart === 'yarn') {
         await getData(termStart)
-        if (!workspaceNames.length) {
-          return log(
-            colorize({ color: 'yellow', text: '当前目录不存在任何子目录' }),
-          )
-        }
+        if (!workspaceNames.length)
+          return log(colorize({ color: 'yellow', text: noworkspacText }))
+
         const { result: choose } = jsShell(
           `echo ${workspaceNames.join(
             ',',
@@ -104,11 +108,8 @@ export async function ccommand() {
           'pipe',
         )
         dirname = choose
-        if (!dirname) {
-          return log(
-            colorize({ color: 'yellow', text: isZh ? '已取消' : 'Cancelled' }),
-          )
-        }
+        if (!dirname)
+          return log(colorize({ color: 'yellow', text: cancelledText }))
       }
       else if (termStart === 'pnpm') {
         await getData(termStart)
@@ -116,9 +117,7 @@ export async function ccommand() {
           return log(
             colorize({
               color: 'yellow',
-              text: isZh
-                ? '当前目录不存在任何子目录'
-                : 'The current directory does not have any subdirectories',
+              text: noworkspacText,
             }),
           )
         }
@@ -134,11 +133,8 @@ export async function ccommand() {
           'pipe',
         )
         dirname = choose.trim()
-        if (!dirname) {
-          return log(
-            colorize({ color: 'yellow', text: isZh ? '已取消' : 'Cancelled' }),
-          )
-        }
+        if (!dirname)
+          return log(colorize({ color: 'yellow', text: cancelledText }))
       }
       else {
         return log(
@@ -225,7 +221,7 @@ export async function ccommand() {
   }
 
   if (!fuzzyWorkspace && !val) {
-    log(colorize({ color: 'yellow', text: isZh ? '已取消' : 'Cancelled' }))
+    log(colorize({ color: 'yellow', text: cancelledText }))
     return process.exit()
   }
 
@@ -234,9 +230,9 @@ export async function ccommand() {
     log(
       colorize({
         color: 'green',
-        text: `\ncommand '${(argv[0] === 'find' ? argv[2] : argv[1]) || val}' ${
-          isZh ? '运行成功' : 'run successfully'
-        } 🎉`,
+        text: `\ncommand '${
+          (argv[0] === 'find' ? argv[2] : argv[1]) || val
+        }' ${successText} 🎉`,
       }),
     )
     return process.exit()
@@ -244,7 +240,7 @@ export async function ccommand() {
   log(
     colorize({
       color: 'red',
-      text: `\ncommand '${val}' ${isZh ? '运行失败' : 'run error'} ❌`,
+      text: `\ncommand '${val}' ${failedText} ❌`,
     }),
   )
 
@@ -388,9 +384,9 @@ export async function ccommand() {
       return log(
         colorize({
           color: 'green',
-          text: `\ncommand '${script}${prefix ? ` ${prefix}` : ''}' ${
-            isZh ? '执行成功' : 'run successfully'
-          } 🎉`,
+          text: `\ncommand '${script}${
+            prefix ? ` ${prefix}` : ''
+          }' ${successText} 🎉`,
         }),
       )
     }
@@ -401,7 +397,7 @@ export async function ccommand() {
           bold: true,
           color: 'cyan',
           text: `'${script || argv[0]}${prefix ? ` ${prefix}` : ''}'`,
-        })} ${isZh ? '执行失败' : 'run error'} ❌`,
+        })} ${failedText} ❌`,
       }),
     )
   }

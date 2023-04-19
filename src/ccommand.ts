@@ -406,13 +406,31 @@ export async function ccommand() {
 async function getData(type: 'pnpm' | 'yarn') {
   if (cacheData)
     return cacheData
-  const workspace
-    = type === 'pnpm'
-      ? await fs.readFile(
-        path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
-        'utf-8',
-      )
-      : await fs.readFile(path.resolve(process.cwd(), 'package.json'), 'utf-8')
+  let workspace = ''
+  try {
+    workspace
+      = type === 'pnpm'
+        ? await fs.readFile(
+          path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
+          'utf-8',
+        )
+        : await fs.readFile(
+          path.resolve(process.cwd(), 'package.json'),
+          'utf-8',
+        )
+  }
+  catch (error) {
+    log(
+      colorize({
+        color: 'red',
+        text: isZh
+          ? 'pfind命令需要读取pnpm-workspace.yaml,当前目录下并不存在'
+          : 'The pfind command needs to read pnpm-workspace.yaml, which does not exist in the current directory',
+      }),
+    )
+    process.exit(0)
+  }
+
   let packages
   if (type === 'pnpm') {
     packages = YAML.parse(workspace)?.packages || []

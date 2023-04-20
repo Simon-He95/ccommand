@@ -20,10 +20,11 @@ let cacheData: any = null
 const log = console.log
 const splitFlag = '__ccommand__split'
 const isZh = process.env.PI_Lang === 'zh'
+const cancelCode = 130
+const cancelledText = isZh ? '已取消...' : 'Cancelled...'
 
 export async function ccommand() {
   gumInstall(isZh)
-  const cancelledText = isZh ? '已取消' : 'Cancelled'
   const noworkspacText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
@@ -79,7 +80,7 @@ export async function ccommand() {
       }),
     )
   }
-  const termStart = getPkgTool()
+  const termStart = await getPkgTool()
 
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
@@ -97,7 +98,7 @@ export async function ccommand() {
         if (!workspaceNames.length)
           return log(colorize({ color: 'yellow', text: noworkspacText }))
 
-        const { result: choose } = jsShell(
+        const { result: choose, status } = jsShell(
           `echo ${workspaceNames.join(
             ',',
           )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
@@ -108,8 +109,8 @@ export async function ccommand() {
           'pipe',
         )
         dirname = choose
-        if (!dirname)
-          return log(colorize({ color: 'yellow', text: cancelledText }))
+        if (status === cancelCode)
+          return cancel()
       }
       else if (termStart === 'pnpm') {
         await getData(termStart)
@@ -122,7 +123,7 @@ export async function ccommand() {
           )
         }
 
-        const { result: choose } = jsShell(
+        const { result: choose, status } = jsShell(
           `echo ${workspaceNames.join(
             ',',
           )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
@@ -132,9 +133,9 @@ export async function ccommand() {
           }"`,
           'pipe',
         )
+        if (status === cancelCode)
+          return cancel()
         dirname = choose.trim()
-        if (!dirname)
-          return log(colorize({ color: 'yellow', text: cancelledText }))
       }
       else {
         return log(
@@ -213,17 +214,17 @@ export async function ccommand() {
       result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
       return result
     }, '')
-    const { result } = jsShell(
+    const { result, status } = jsShell(
       `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
       'pipe',
     )
+    if (status === cancelCode)
+      return cancel()
     val = result.substring(0, result.indexOf(': '))
   }
 
-  if (!fuzzyWorkspace && !val) {
-    log(colorize({ color: 'yellow', text: cancelledText }))
-    return process.exit()
-  }
+  if (!fuzzyWorkspace && !val)
+    return cancel()
 
   const { status: _status } = await jsShell(getCommand())
   if (_status === 0) {
@@ -498,3 +499,8 @@ function fuzzyMatch(scripts: Record<string, string>, params: string) {
 }
 
 ccommand()
+
+function cancel() {
+  log(colorize({ color: 'yellow', text: cancelledText }))
+  return process.exit()
+}

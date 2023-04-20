@@ -15,7 +15,7 @@ importers:
       eslint: ^8.16.0
       eslint-plugin-n: ^15.2.1
       fast-glob: ^3.2.12
-      lazy-js-utils: ^0.0.5
+      lazy-js-utils: ^0.0.48
       lint-staged: ^13.1.0
       picocolors: ^1.0.0
       pkgroll: ^1.3.1
@@ -33,7 +33,7 @@ importers:
       '@vueuse/core': 8.9.4_vue@3.2.41
       chalk: 5.1.2
       fast-glob: 3.2.12
-      lazy-js-utils: 0.0.5
+      lazy-js-utils: 0.0.48_vue@3.2.41
       vue: 3.2.41
       yamljs: 0.3.0
     devDependencies:
@@ -4076,16 +4076,24 @@ packages:
     resolution: {integrity: sha512-dLkz37Ab97HWMx9KTes3Tbi3D1ln9fCAy2zr2YVExJasDRPGRaKcoE4fycWNtnCAJfjFqe0cnY+f8KT2JePEXQ==}
     dev: true
 
-  /lazy-js-utils/0.0.5:
-    resolution: {integrity: sha512-+dVcWTnYKYTOA2SXp+24cLy+idDirJwTM/YQ6H/JJ9d05s7QZMDhXoiJVr3w+wFkoQPmI7bJKGAZbpFYSnKQSw==}
+  /lazy-js-utils/0.0.37_vue@3.2.41:
+    resolution: {integrity: sha512-kr6ehqgZmUDkBFUdFaOby43wZ/fdUODJVDRY4v0ZlGoTKTXZ/huea8Mu9LA2ThSt11URObpE+DMWS+IHBtKW2w==}
+    peerDependencies:
+      vue: ^3.2.41
     dependencies:
-      '@vueuse/core': 8.9.4_vue@3.2.41
+      vue: 3.2.41
+    dev: false
+
+  /lazy-js-utils/0.0.48_vue@3.2.41:
+    resolution: {integrity: sha512-DOGqeLHg0E+FiUEvWh0A08mEJBVMtxbkYNUj4yMAYL69RMfPYzGfzvKBEpxWc+KXHLtzJ3w+fCgPB9QLdZfZsA==}
+    peerDependencies:
+      vue: ^3.2.41
+    dependencies:
       htmlparser2: 8.0.1
+      lazy-js-utils: 0.0.37_vue@3.2.41
       qrcode: 1.5.1
       spark-md5: 3.0.2
       vue: 3.2.41
-    transitivePeerDependencies:
-      - '@vue/composition-api'
     dev: false
 
   /levn/0.3.0:

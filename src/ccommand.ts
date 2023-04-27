@@ -168,12 +168,21 @@ export async function ccommand() {
               color: 'yellow',
             }),
           )
-          return runScript(argv[0], argv.slice(1).join(' '))
+
+          runScript(argv[0], argv.slice(1).join(' '))
+          setTimeout(() => {
+            jsShell('zsh')
+          }, 10)
+          return
         }
         else if (pkg && name) {
           const script = fuzzyMatch(pkg, argv[0])!
           const prefix = argv.slice(1).join(' ')
-          return runScript(script, prefix)
+          runScript(script, prefix)
+          setTimeout(() => {
+            jsShell('zsh')
+          }, 10)
+          return
         }
       }
       catch (error) {}
@@ -226,17 +235,18 @@ export async function ccommand() {
   if (!fuzzyWorkspace && !val)
     return cancel()
 
-  const { status: _status } = await jsShell(getCommand())
+  const [command, text] = await getCommand()
+  const { status: _status } = await jsShell(command)
   if (_status === 0) {
-    log(
+    setTimeout(() => {
+      jsShell('zsh')
+    }, 10)
+    return log(
       colorize({
         color: 'green',
-        text: `\ncommand '${
-          (argv[0] === 'find' ? argv[2] : argv[1]) || val
-        }' ${successText} 🎉`,
+        text: `\n${text} 🎉`,
       }),
     )
-    return process.exit()
   }
   log(
     colorize({
@@ -250,7 +260,7 @@ export async function ccommand() {
       keys.find(key => key === str) ?? keys.find(key => str.startsWith(key))
     )
   }
-  function getCommand(): string {
+  async function getCommand(): Promise<[string, string]> {
     let dir = ''
     let prefix = ''
     const withRun = termStart !== 'yarn'
@@ -271,7 +281,7 @@ export async function ccommand() {
       dir = ''
     }
     let command = ''
-
+    let text = ''
     if (prefix && !prefix.startsWith(' --')) {
       const _all = prefix.split(' ').filter(Boolean)
       command = _all[0]
@@ -282,30 +292,18 @@ export async function ccommand() {
     } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
     val = `${command || (val ? transformScripts(val) : fuzzyWorkspace)}`
     if (argv[0] === 'find') {
-      log(
-        colorize({
-          text: `${
-            isZh ? '提示' : 'tips'
-          }: pfind ${dirname} ${val} ${prefix}`.replace(/\s+/g, ' '),
-          color: 'blue',
-          bold: true,
-        }),
-      )
+      text = `pfind ${dirname} ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
+      await pushHistory(text)
     }
     else {
-      log(
-        colorize({
-          text: `${isZh ? '提示' : 'tips'}: prun ${val} ${prefix}`.replace(
-            /\s+/g,
-            ' ',
-          ),
-          color: 'blue',
-          bold: true,
-        }),
-      )
+      text = `prun ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
+      await pushHistory(text)
     }
-
-    return result
+    const texts = text.split(' ')
+    const last = texts.slice(-1)[0]
+    texts[texts.length - 1] = `'${last}'`
+    const highlighText = texts.join(' ')
+    return [result, highlighText]
   }
 
   async function getScripts() {
@@ -382,10 +380,11 @@ export async function ccommand() {
       }
     }
     if (_status === 0) {
+      await pushHistory(`prun ${script}${prefix ? ` ${prefix}` : ''}`)
       return log(
         colorize({
           color: 'green',
-          text: `\ncommand '${script}${
+          text: `\nprun '${script}${
             prefix ? ` ${prefix}` : ''
           }' ${successText} 🎉`,
         }),
@@ -503,4 +502,41 @@ ccommand()
 function cancel() {
   log(colorize({ color: 'yellow', text: cancelledText }))
   return process.exit()
+}
+
+async function pushHistory(command: string) {
+  log(
+    colorize({
+      text: `${isZh ? '提示' : 'tips'}: ${command}`,
+      color: 'blue',
+      bold: true,
+    }),
+  )
+  // if (isWin()) {
+  //   const env = process.env as any
+  //   const historyFile = env.HOMEDRIVE + env.HOMEPATH
+  //   try {
+  //     let _history = await fs.readFile(historyFile, 'utf8');
+  //     const info = `${_history}${command}\n`
+  //     fs.writeFile(historyFile, info)
+  //     await jsShell('source ~/.bash_history')
+  //   } catch (error) {
+
+  //   }
+  // } else {
+  const historyFile = `${process.env.HOME}/.zsh_history`
+  try {
+    const _history = await fs.readFile(historyFile, 'utf8')
+    // 构造Date对象,获取当前时间
+    const now = new Date()
+    // 调用getTime()获取UNIX时间戳(ms)
+    const timestamp = now.getTime() / 1000
+    const info = `${_history}: ${timestamp.toFixed(0)}:0;${command}\n`
+    // 写回history
+    await fs.writeFile(historyFile, info)
+  }
+  catch (error) {
+    // console.log(error)
+  }
+  // }
 }

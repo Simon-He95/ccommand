@@ -22,6 +22,9 @@ const splitFlag = '__ccommand__split'
 const isZh = process.env.PI_Lang === 'zh'
 const cancelCode = 130
 const cancelledText = isZh ? '已取消...' : 'Cancelled...'
+const notfound = isZh
+  ? '当前目录并未找到package.json文件'
+  : 'The current directory and not found package.json file'
 
 export async function ccommand() {
   gumInstall(isZh)
@@ -80,8 +83,18 @@ export async function ccommand() {
       }),
     )
   }
-  const termStart = await getPkgTool()
-
+  let termStart: 'npm' | 'pnpm' | 'yarn' | 'bun'
+  try {
+    termStart = await getPkgTool()
+  }
+  catch (error) {
+    return log(
+      colorize({
+        color: 'red',
+        text: notfound,
+      }),
+    )
+  }
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
   let scripts: Record<string, string>

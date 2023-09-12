@@ -30,9 +30,6 @@ importers:
       bumpp:
         specifier: ^8.2.1
         version: 8.2.1
-      commander:
-        specifier: ^10.0.0
-        version: 10.0.0
       eslint:
         specifier: ^8.16.0
         version: 8.25.0
@@ -40,8 +37,8 @@ importers:
         specifier: ^15.2.1
         version: 15.3.0(eslint@8.25.0)
       lazy-js-utils:
-        specifier: ^0.0.65
-        version: 0.0.65(vue@3.2.41)
+        specifier: ^0.0.66
+        version: 0.0.66(vue@3.2.41)
       lint-staged:
         specifier: ^13.1.0
         version: 13.1.0
@@ -52,9 +49,6 @@ importers:
         specifier: ^1.3.1
         version: 1.4.0(typescript@4.8.4)
       prettier:
-        specifier: ^2.8.1
-        version: 2.8.1
-      simple-git-hooks:
         specifier: ^2.8.1
         version: 2.8.1
       terminal-link:
@@ -2051,11 +2045,6 @@ packages:
     engines: {node: '>= 0.8'}
     dependencies:
       delayed-stream: 1.0.0
-    dev: true
-
-  /commander@10.0.0:
-    resolution: {integrity: sha512-zS5PnTI22FIRM6ylNW8G4Ap0IEOyk62fhLSD0+uHRT9McRCLGpkVNvao4bjimpK/GShynyQkFFxHhwMcETmduA==}
-    engines: {node: '>=14'}
     dev: true
 
   /commander@9.4.1:
@@ -4168,8 +4157,8 @@ packages:
       vue: 3.2.41
     dev: true
 
-  /lazy-js-utils@0.0.65(vue@3.2.41):
-    resolution: {integrity: sha512-GMumw+tnWWzYI1MA/ouvHGhVjIDfgtulHexelSxO/5t0HF18lFK1znxAa5So3opUFevhYfI0Qp4o5e4E1bXGIg==}
+  /lazy-js-utils@0.0.66(vue@3.2.41):
+    resolution: {integrity: sha512-QK0O6LNMlRP5qg/uHi9g2AOX78NkJbEY3r7AHJ63wnDj4R2NMJEvuHI66Hj8HwLpEVYpPtlIjslgzIh36KbogA==}
     peerDependencies:
       vue: ^3.2.41
     dependencies:
@@ -5105,12 +5094,6 @@ packages:
 
   /signal-exit@3.0.7:
     resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
-    dev: true
-
-  /simple-git-hooks@2.8.1:
-    resolution: {integrity: sha512-DYpcVR1AGtSfFUNzlBdHrQGPsOhuuEJ/FkmPOOlFysP60AHd3nsEpkGq/QEOdtUyT1Qhk7w9oLmFoMG+75BDog==}
-    hasBin: true
-    requiresBuild: true
     dev: true
 
   /sirv@2.0.2:

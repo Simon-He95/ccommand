@@ -387,7 +387,7 @@ export async function ccommand() {
         break
       }
       case 'bun': {
-        const { status } = jsShell(`bun ${script} ${prefix}`)
+        const { status } = jsShell(`bun run ${script} ${prefix}`)
         _status = status
         break
       }

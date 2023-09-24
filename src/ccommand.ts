@@ -1,4 +1,4 @@
-import fs from 'fs/promises'
+import fsp from 'node:fs/promises'
 import path from 'path'
 import { getPkg, getPkgTool, isPlainObject, jsShell } from 'lazy-js-utils'
 import fg from 'fast-glob'
@@ -423,11 +423,11 @@ async function getData(type: 'pnpm' | 'yarn') {
   try {
     workspace
       = type === 'pnpm'
-        ? await fs.readFile(
+        ? await fsp.readFile(
           path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
           'utf-8',
         )
-        : await fs.readFile(
+        : await fsp.readFile(
           path.resolve(process.cwd(), 'package.json'),
           'utf-8',
         )
@@ -529,9 +529,9 @@ async function pushHistory(command: string) {
   //   const env = process.env as any
   //   const historyFile = env.HOMEDRIVE + env.HOMEPATH
   //   try {
-  //     let _history = await fs.readFile(historyFile, 'utf8');
+  //     let _history = await fsp.readFile(historyFile, 'utf8');
   //     const info = `${_history}${command}\n`
-  //     fs.writeFile(historyFile, info)
+  //     fsp.writeFile(historyFile, info)
   //     await jsShell('source ~/.bash_history')
   //   } catch (error) {
 
@@ -539,14 +539,28 @@ async function pushHistory(command: string) {
   // } else {
   const historyFile = `${process.env.HOME}/.zsh_history`
   try {
-    const _history = await fs.readFile(historyFile, 'utf8')
+    const _history = await fsp.readFile(historyFile, 'utf8')
     // 构造Date对象,获取当前时间
     const now = new Date()
     // 调用getTime()获取UNIX时间戳(ms)
     const timestamp = now.getTime() / 1000
     const info = `${_history}: ${timestamp.toFixed(0)}:0;${command}\n`
+    const infoSet: any[] = []
+    // 过滤掉之前重复的指令
+    info.split('\n').forEach((item) => {
+      const command = item.split(';').slice(1).join(';')
+      const targetIndex = infoSet.findIndex(
+        i => i.split(';').slice(1).join(';') === command,
+      )
+      if (targetIndex !== -1)
+        infoSet.splice(targetIndex, 1)
+
+      infoSet.push(item)
+    })
+    const newInfo = infoSet.join('\n')
+
     // 写回history
-    await fs.writeFile(historyFile, info)
+    await fsp.writeFile(historyFile, newInfo)
   }
   catch (error) {
     // console.log(error)

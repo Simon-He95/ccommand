@@ -1,4 +1,5 @@
 import fsp from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'path'
 import { getPkg, getPkgTool, isPlainObject, jsShell } from 'lazy-js-utils'
 import fg from 'fast-glob'
@@ -539,6 +540,8 @@ async function pushHistory(command: string) {
   // } else {
   const historyFile = `${process.env.HOME}/.zsh_history`
   try {
+    if (!existsSync(historyFile))
+      return
     const _history = await fsp.readFile(historyFile, 'utf8')
     // 构造Date对象,获取当前时间
     const now = new Date()

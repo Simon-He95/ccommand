@@ -27,14 +27,16 @@ const notfound = isZh
   ? '当前目录并未找到package.json文件'
   : 'The current directory and not found package.json file'
 
-export async function ccommand() {
+export async function ccommand(userParams?: string) {
   gumInstall(isZh)
-  const noworkspacText = isZh
+  const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
   const successText = isZh ? '运行成功' : 'run successfully'
   const failedText = isZh ? '运行失败' : 'run error'
-  const argv = process.argv.slice(2)
+  const argv = userParams
+    ? userParams.replace(/\s+/, ' ').split(' ')
+    : process.argv.slice(2)
   if (argv[0] === '-v' || argv[0] === '--version') {
     return log(
       colorize({
@@ -110,7 +112,7 @@ export async function ccommand() {
       if (termStart === 'yarn') {
         await getData(termStart)
         if (!workspaceNames.length)
-          return log(colorize({ color: 'yellow', text: noworkspacText }))
+          return log(colorize({ color: 'yellow', text: noWorkspaceText }))
 
         const { result: choose, status } = jsShell(
           `echo ${workspaceNames.join(
@@ -132,7 +134,7 @@ export async function ccommand() {
           return log(
             colorize({
               color: 'yellow',
-              text: noworkspacText,
+              text: noWorkspaceText,
             }),
           )
         }
@@ -510,8 +512,6 @@ function fuzzyMatch(scripts: Record<string, string>, params: string) {
     process.exit(1)
   }
 }
-
-ccommand()
 
 function cancel() {
   log(colorize({ color: 'yellow', text: cancelledText }))

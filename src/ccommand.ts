@@ -252,8 +252,8 @@ export async function ccommand(userParams?: string) {
     return cancel()
 
   const [command, text] = await getCommand()
-  const { status: _status } = await jsShell(command)
-  if (_status === 0) {
+  const { status } = await jsShell(command)
+  if (status === 0) {
     setTimeout(() => {
       jsShell('zsh')
     }, 10)
@@ -307,14 +307,11 @@ export async function ccommand(userParams?: string) {
       command || (val ? transformScripts(val) || val : fuzzyWorkspace)
     } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
     val = `${command || (val ? transformScripts(val) : fuzzyWorkspace)}`
-    if (argv[0] === 'find') {
+    if (argv[0] === 'find')
       text = `pfind ${dirname} ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
-      await pushHistory(text)
-    }
-    else {
-      text = `prun ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
-      await pushHistory(text)
-    }
+    else text = `prun ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
+
+    await pushHistory(text)
     const texts = text.split(' ')
     const last = texts.slice(-1)[0]
     texts[texts.length - 1] = `'${last}'`
@@ -349,7 +346,7 @@ export async function ccommand(userParams?: string) {
   }
 
   async function runScript(script: string, prefix: string) {
-    let _status
+    let status
     if (script && argv[0] !== script) {
       log(
         colorize({
@@ -369,33 +366,27 @@ export async function ccommand(userParams?: string) {
 
     switch (termStart) {
       case 'npm': {
-        const { status } = jsShell(
+        status = jsShell(
           `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
-        )
-        _status = status
+        ).status
         break
       }
       case 'pnpm': {
-        const { status } = jsShell(
+        status = jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-        )
-        _status = status
+        ).status
         break
       }
       case 'yarn': {
-        const { status: runStatus } = jsShell(
-          `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
-        )
-        _status = runStatus
+        status = jsShell(`yarn ${script}${prefix ? ` ${prefix}` : ''}`).status
         break
       }
       case 'bun': {
-        const { status } = jsShell(`bun run ${script} ${prefix}`)
-        _status = status
+        status = jsShell(`bun run ${script} ${prefix}`).status
         break
       }
     }
-    if (_status === 0) {
+    if (status === 0) {
       await pushHistory(`prun ${script}${prefix ? ` ${prefix}` : ''}`)
       return log(
         colorize({
@@ -521,7 +512,7 @@ function cancel() {
 async function pushHistory(command: string) {
   log(
     colorize({
-      text: `${isZh ? '提示' : 'tips'}: ${command}`,
+      text: `${isZh ? '快捷指令' : 'shortcut command'}: ${command}`,
       color: 'blue',
       bold: true,
     }),

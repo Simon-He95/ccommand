@@ -52,6 +52,7 @@
     "@simon_he/colorize": "^0.0.1",
     "build": "^0.1.4",
     "fast-glob": "^3.2.12",
+    "lazy-js-utils": "^0.0.71",
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
@@ -61,7 +62,6 @@
     "bumpp": "^8.2.1",
     "eslint": "^8.16.0",
     "eslint-plugin-n": "^15.2.1",
-    "lazy-js-utils": "^0.0.66",
     "lint-staged": "^13.1.0",
     "picocolors": "^1.0.0",
     "prettier": "^2.8.1",

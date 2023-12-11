@@ -7,6 +7,7 @@ import colorize from '@simon_he/colorize'
 import terminalLink from 'terminal-link'
 import { version } from '../package.json'
 import { gumInstall } from './gumInstall'
+import { readMakefile } from './makefile'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
@@ -29,6 +30,7 @@ const notfound = isZh
 
 export async function ccommand(userParams?: string) {
   gumInstall(isZh)
+
   const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
@@ -86,17 +88,37 @@ export async function ccommand(userParams?: string) {
       }),
     )
   }
-  let termStart: 'npm' | 'pnpm' | 'yarn' | 'bun'
+  let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun'
   try {
     termStart = await getPkgTool()
   }
   catch (error) {
-    return log(
-      colorize({
-        color: 'red',
-        text: notfound,
-      }),
-    )
+    // 如果都没有找到package.json文件，考虑一下rust的情况，判断目录下是否有Makefile文件
+    const makefile = await fsp.readFile('./Makefile', 'utf-8')
+    if (makefile) {
+      console.log('makefile')
+      const options = await readMakefile('./Makefile')
+      console.log(options.map(i => i.name).join('\\n'))
+      const { result, status } = jsShell(
+        `echo "${options
+          .map(i => i.name)
+          .join('\n')}" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
+        'pipe',
+      )
+      if (status === cancelCode)
+        return cancel()
+
+      jsShell(`make ${result}`)
+      process.exit()
+    }
+    else {
+      return log(
+        colorize({
+          color: 'red',
+          text: notfound,
+        }),
+      )
+    }
   }
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name

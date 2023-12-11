@@ -94,24 +94,37 @@ export async function ccommand(userParams?: string) {
   }
   catch (error) {
     // 如果都没有找到package.json文件，考虑一下rust的情况，判断目录下是否有Makefile文件
-    const makefile = await fsp.readFile('./Makefile', 'utf-8')
-    if (makefile) {
-      console.log('makefile')
-      const options = await readMakefile('./Makefile')
-      console.log(options.map(i => i.name).join('\\n'))
-      const { result, status } = jsShell(
-        `echo "${options
-          .map(i => i.name)
-          .join('\n')}" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
-        'pipe',
+    try {
+      const makefile = await fsp.readFile(
+        path.resolve(process.cwd(), './Makefile'),
+        'utf-8',
       )
-      if (status === cancelCode)
-        return cancel()
+      if (makefile) {
+        const options = await readMakefile('./Makefile')
+        const { result, status } = jsShell(
+          `echo "${options
+            .map(i => i.name)
+            .join(
+              '\n',
+            )}" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
+          'pipe',
+        )
+        if (status === cancelCode)
+          return cancel()
 
-      jsShell(`make ${result}`)
-      process.exit()
+        jsShell(`make ${result}`)
+        process.exit()
+      }
+      else {
+        return log(
+          colorize({
+            color: 'red',
+            text: notfound,
+          }),
+        )
+      }
     }
-    else {
+    catch (error) {
       return log(
         colorize({
           color: 'red',

@@ -28,6 +28,8 @@ const notfound = isZh
   ? '当前目录并未找到package.json文件'
   : 'The current directory and not found package.json file'
 
+const runMsg = isZh ? '正在为您执行...' : 'is running for you...'
+
 export async function ccommand(userParams?: string) {
   gumInstall(isZh)
 
@@ -88,7 +90,7 @@ export async function ccommand(userParams?: string) {
       }),
     )
   }
-  let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun'
+  let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'make'
   try {
     termStart = await getPkgTool()
   }
@@ -100,20 +102,37 @@ export async function ccommand(userParams?: string) {
         'utf-8',
       )
       if (makefile) {
+        termStart = 'make'
         const options = await readMakefile('./Makefile')
-        const { result, status } = jsShell(
-          `echo "${options
-            .map(i => i.name)
-            .join(
-              '\n',
-            )}" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
-          'pipe',
-        )
-        if (status === cancelCode)
-          return cancel()
+        const fuzzyOptions = options.reduce((r, o) => {
+          const { name, detail } = o
+          r[name] = detail
+          return r
+        }, {} as Record<string, string>)
+        let script = ''
+        if (userParams) {
+          script = fuzzyMatch(fuzzyOptions, userParams)!
+        }
+        else {
+          const { result, status } = jsShell(
+            `echo "${options
+              .map(i => i.name)
+              .join(
+                '\n',
+              )}" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
+            'pipe',
+          )
+          if (status === cancelCode)
+            return cancel()
+          script = result
+        }
+        await runScript(script.trim()!, '')
 
-        jsShell(`make ${result}`)
-        process.exit()
+        setTimeout(() => {
+          jsShell('zsh')
+        }, 10)
+
+        return
       }
       else {
         return log(
@@ -208,18 +227,6 @@ export async function ccommand(userParams?: string) {
       try {
         const pkg = ((await getPkg('./package.json')) || {})?.scripts
         if (pkg && pkg[argv[0]]) {
-          log(
-            colorize({
-              text: `${
-                isZh ? 'ccommand正在执行' : 'ccommand is executing'
-              } ${colorize({
-                color: 'cyan',
-                text: `'${argv[0]}'`,
-              })} 🤔 `,
-              color: 'yellow',
-            }),
-          )
-
           runScript(argv[0], argv.slice(1).join(' '))
           setTimeout(() => {
             jsShell('zsh')
@@ -286,8 +293,17 @@ export async function ccommand(userParams?: string) {
   if (!fuzzyWorkspace && !val)
     return cancel()
 
+  log(
+    colorize({
+      text: `🤔 ${runMsg} ${val}`,
+      color: 'magenta',
+    }),
+  )
+
   const [command, text] = await getCommand()
-  const { status } = await jsShell(command)
+  const _command = command.replace(/\s+/g, ' ')
+
+  const { status } = await jsShell(_command)
   if (status === 0) {
     setTimeout(() => {
       jsShell('zsh')
@@ -382,7 +398,8 @@ export async function ccommand(userParams?: string) {
 
   async function runScript(script: string, prefix: string) {
     let status
-    if (script && argv[0] !== script) {
+    const arg = argv[0]?.trim()
+    if (script && arg && arg !== script) {
       log(
         colorize({
           text: `🤔 ${colorize({
@@ -395,6 +412,14 @@ export async function ccommand(userParams?: string) {
             color: 'cyan',
           })} `,
           color: 'yellow',
+        }),
+      )
+    }
+    else if (script) {
+      log(
+        colorize({
+          text: `🤔 ${runMsg} ${script}`,
+          color: 'magenta',
         }),
       )
     }
@@ -418,6 +443,10 @@ export async function ccommand(userParams?: string) {
       }
       case 'bun': {
         status = jsShell(`bun run ${script} ${prefix}`).status
+        break
+      }
+      case 'make': {
+        status = jsShell(`make ${script} ${prefix}`).status
         break
       }
     }

@@ -542,7 +542,13 @@ async function readGlob(packages: string[]) {
       // 过滤没有scripts或name的子包
       if (!name || !scripts)
         return result
-      result[name] = scripts
+      // scripts 中可能存在被注释的情况，需要过滤掉
+      result[name] = Object.keys(scripts).reduce((r, k) => {
+        if (k.startsWith('//'))
+          return r
+        r[k] = scripts[k]
+        return r
+      }, {} as Record<string, string>)
       return result
     }, {} as Record<string, Record<string, string>>),
   )

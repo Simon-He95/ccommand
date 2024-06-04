@@ -32,7 +32,6 @@ const runMsg = isZh ? '正在为您执行...' : 'is running for you...'
 
 export async function ccommand(userParams?: string) {
   gumInstall(isZh)
-
   const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
@@ -235,6 +234,19 @@ export async function ccommand(userParams?: string) {
         }
         else if (pkg && name) {
           const script = fuzzyMatch(pkg, argv[0])!
+          if (!script) {
+            log(
+              colorize({
+                color: 'red',
+                text: `"${argv[0]}" ${
+                  isZh
+                    ? '在工作区、当前目录中找不到任何可执行的脚本,请检查'
+                    : 'is not found in workspace, current directory or current scripts, please check'
+                }`,
+              }),
+            )
+            process.exit(0)
+          }
           const prefix = argv.slice(1).join(' ')
           runScript(script, prefix)
           setTimeout(() => {

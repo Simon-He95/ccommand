@@ -245,7 +245,7 @@ export async function ccommand(userParams?: string) {
                 }`,
               }),
             )
-            process.exit(0)
+            process.exit(1)
           }
           const prefix = argv.slice(1).join(' ')
           runScript(script, prefix)

@@ -94,6 +94,8 @@ export async function ccommand(userParams?: string) {
     const status = jsShell(`rustc ${argv0}`).status
     if (status === 0) {
       await pushHistory(`prun ${argv0}`)
+      // 运行变异后的文件
+      jsShell(`./${argv0.slice(0, argv0.length - 3)}`)
       log(
         colorize({
           color: 'green',

@@ -88,7 +88,7 @@ export async function ccommand(userParams?: string) {
       }),
     )
   }
-  else if (argv[0].endsWith('.rs')) {
+  else if (argv[0]?.endsWith('.rs')) {
     const argv0 = argv[0]
     // rust 文件直接执行
     const status = jsShell(`rustc ${argv0}`).status

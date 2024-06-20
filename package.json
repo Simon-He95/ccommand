@@ -44,6 +44,7 @@
     "test": "vitest --dir test -u",
     "ptest": "pnpm run -C playground test -u",
     "preview": "pnpm run -C playground preview",
+    "clean": "rm -rf `find . -type d -name node_modules -o -name dist -o -name .next -o -name out`; rm package-lock.json",
     "test:e2e": "cypress open",
     "prepublishOnly": "nr build",
     "release": "bumpp --commit --tag --push && git push origin --tags -f && npm publish"

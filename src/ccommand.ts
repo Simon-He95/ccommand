@@ -318,7 +318,7 @@ export async function ccommand(userParams?: string) {
     const options = Object.keys(scripts).reduce((result, key) => {
       const value = scripts[key]
       keys.push(key)
-      result += `"${key}: ${value.replace(/\"/g, '\'')}"${splitFlag}`
+      result += `"${key}: ${value.replace(/["`]/g, '\\$1')}"${splitFlag}`
       return result
     }, '')
     const { result, status } = jsShell(

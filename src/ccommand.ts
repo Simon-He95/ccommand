@@ -50,8 +50,7 @@ export async function ccommand(userParams?: string) {
       }),
     )
   }
-
-  if (argv[0] === '-h' || argv[0] === '--help') {
+  else if (argv[0] === '-h' || argv[0] === '--help') {
     const issueLink = terminalLink(
       isZh ? '打开一个新的问题' : 'open an issue',
       'https://github.com/Simon-He95/ccommand/issues',
@@ -88,6 +87,33 @@ export async function ccommand(userParams?: string) {
   })} `,
       }),
     )
+  }
+  else if (argv[0].endsWith('.rs')) {
+    const argv0 = argv[0]
+    // rust 文件直接执行
+    const status = jsShell(`rustc ${argv0}`).status
+    if (status === 0) {
+      await pushHistory(`prun ${argv0}`)
+      log(
+        colorize({
+          color: 'green',
+          text: `\n"prun ${argv0}" ${successText} 🎉`,
+        }),
+      )
+    }
+    else {
+      log(
+        colorize({
+          color: 'red',
+          text: `\ncommand ${colorize({
+            bold: true,
+            color: 'cyan',
+            text: `"prun ${argv0}"`,
+          })} ${failedText} ❌`,
+        }),
+      )
+    }
+    return
   }
   let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'make'
   try {

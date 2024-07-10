@@ -503,6 +503,7 @@ export async function ccommand(userParams?: string) {
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
           { stdio: 'pipe', errorExit: false },
         )
+
         if (
           result.includes(
             'pnpm versions with respective Node.js version support',
@@ -521,7 +522,9 @@ export async function ccommand(userParams?: string) {
             `npm run ${script}${prefix ? ` ${prefix}` : ''}`,
           ).status
         }
-        status = _status
+        else {
+          status = _status
+        }
         break
       }
       case 'yarn': {

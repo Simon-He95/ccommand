@@ -228,7 +228,10 @@ export async function ccommand(userParams?: string) {
               ? '请选择一个要执行的目录'
               : 'Please select a directory to execute'
           }"`,
-          'pipe',
+          {
+            stdio: 'pipe',
+            isLog: true,
+          },
         )
         if (status === cancelCode)
           return cancel()
@@ -383,6 +386,9 @@ export async function ccommand(userParams?: string) {
       )
     }
   }
+  else {
+    log(result)
+  }
   log(
     colorize({
       color: 'red',
@@ -466,6 +472,7 @@ export async function ccommand(userParams?: string) {
 
   async function runScript(script: string, prefix: string) {
     let status
+    let result
     const arg = argv[0]?.trim()
     if (script && arg && arg !== script) {
       log(
@@ -493,17 +500,20 @@ export async function ccommand(userParams?: string) {
     }
     switch (termStart) {
       case 'npm': {
-        status = jsShell(
+        const { status: _status, result: _result } = jsShell(
           `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
-        ).status
+        )
+        status = _status
+        result = _result
         break
       }
       case 'pnpm': {
-        const { status: _status, result } = jsShell(
+        const { status: _status, result: _result } = jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
           { stdio: 'pipe', errorExit: false },
         )
-
+        result = _result
+        status = _status
         if (
           result.includes(
             'pnpm versions with respective Node.js version support',
@@ -518,25 +528,36 @@ export async function ccommand(userParams?: string) {
               color: 'yellow',
             }),
           )
-          status = jsShell(
+          const { status: _status, result: _result } = jsShell(
             `npm run ${script}${prefix ? ` ${prefix}` : ''}`,
-          ).status
-        }
-        else {
+          )
           status = _status
+          result = _result
         }
         break
       }
       case 'yarn': {
-        status = jsShell(`yarn ${script}${prefix ? ` ${prefix}` : ''}`).status
+        const { status: _status, result: _result } = jsShell(
+          `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
+        )
+        status = _status
+        result = _result
         break
       }
       case 'bun': {
-        status = jsShell(`bun run ${script} ${prefix}`).status
+        const { status: _status, result: _result } = jsShell(
+          `bun run ${script} ${prefix}`,
+        )
+        status = _status
+        result = _result
         break
       }
       case 'make': {
-        status = jsShell(`make ${script} ${prefix}`).status
+        const { status: _status, result: _result } = jsShell(
+          `make ${script} ${prefix}`,
+        )
+        status = _status
+        result = _result
         break
       }
     }
@@ -550,6 +571,9 @@ export async function ccommand(userParams?: string) {
           }' ${successText} 🎉`,
         }),
       )
+    }
+    else {
+      log(result)
     }
     return log(
       colorize({

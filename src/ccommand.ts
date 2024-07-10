@@ -529,7 +529,7 @@ export async function ccommand(userParams?: string) {
             }),
           )
           const { status: _status, result: _result } = jsShell(
-            `npm run ${script}${prefix ? ` ${prefix}` : ''}`,
+            `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
           )
           status = _status
           result = _result

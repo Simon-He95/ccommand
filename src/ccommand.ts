@@ -343,7 +343,10 @@ export async function ccommand(userParams?: string) {
   const [command, text] = await getCommand()
   const _command = command.replace(/\s+/g, ' ')
 
-  const { status } = await jsShell(_command)
+  const { status, result } = jsShell(_command, {
+    stdio: 'pipe',
+    errorExit: false,
+  })
   if (status === 0) {
     setTimeout(() => {
       jsShell('zsh')
@@ -354,6 +357,31 @@ export async function ccommand(userParams?: string) {
         text: `\n${text} 🎉`,
       }),
     )
+  }
+  else if (
+    result.includes('pnpm versions with respective Node.js version support')
+  ) {
+    log(result)
+    log(
+      colorize({
+        text: isZh
+          ? '正在尝试使用 npm 再次执行...'
+          : 'Trying to use npm to run again...',
+        color: 'yellow',
+      }),
+    )
+    const { status } = jsShell(`npm run ${val}${params ? ` -- ${params}` : ''}`)
+    if (status === 0) {
+      setTimeout(() => {
+        jsShell('zsh')
+      }, 10)
+      return log(
+        colorize({
+          color: 'green',
+          text: `\n${text} 🎉`,
+        }),
+      )
+    }
   }
   log(
     colorize({
@@ -473,14 +501,14 @@ export async function ccommand(userParams?: string) {
       case 'pnpm': {
         const { status: _status, result } = jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-          'pipe',
+          { stdio: 'pipe', errorExit: false },
         )
-        log(result)
         if (
           result.includes(
             'pnpm versions with respective Node.js version support',
           )
         ) {
+          log(result)
           log(
             colorize({
               text: isZh

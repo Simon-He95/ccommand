@@ -463,7 +463,6 @@ export async function ccommand(userParams?: string) {
         }),
       )
     }
-
     switch (termStart) {
       case 'npm': {
         status = jsShell(
@@ -472,9 +471,29 @@ export async function ccommand(userParams?: string) {
         break
       }
       case 'pnpm': {
-        status = jsShell(
+        const { status: _status, result } = jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-        ).status
+          'pipe',
+        )
+        log(result)
+        if (
+          result.includes(
+            'pnpm versions with respective Node.js version support',
+          )
+        ) {
+          log(
+            colorize({
+              text: isZh
+                ? '正在尝试使用 npm 再次执行...'
+                : 'Trying to use npm to run again...',
+              color: 'yellow',
+            }),
+          )
+          status = jsShell(
+            `npm run ${script}${prefix ? ` ${prefix}` : ''}`,
+          ).status
+        }
+        status = _status
         break
       }
       case 'yarn': {

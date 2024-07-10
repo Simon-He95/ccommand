@@ -52,7 +52,7 @@
     "@simon_he/colorize": "^0.0.1",
     "build": "^0.1.4",
     "fast-glob": "^3.2.12",
-    "lazy-js-utils": "^0.0.71",
+    "lazy-js-utils": "^0.0.94",
     "yamljs": "^0.3.0"
   },
   "devDependencies": {

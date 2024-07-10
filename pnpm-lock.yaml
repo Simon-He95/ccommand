@@ -18,8 +18,8 @@ importers:
         specifier: ^3.2.12
         version: 3.2.12
       lazy-js-utils:
-        specifier: ^0.0.94
-        version: 0.0.94(vue@3.2.41)
+        specifier: ^0.0.95
+        version: 0.0.95(vue@3.2.41)
       yamljs:
         specifier: ^0.3.0
         version: 0.3.0
@@ -2391,8 +2391,8 @@ packages:
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
 
-  lazy-js-utils@0.0.94:
-    resolution: {integrity: sha512-GQrlNuz11S+GuTBurQimOjAPRmlQdyVUmBlbbCSKxBnBZjELfAJu0LfUHu3kObk+pBKafl700VbXTUfXqz7oyg==}
+  lazy-js-utils@0.0.95:
+    resolution: {integrity: sha512-tVPcRxWjFHNeQ72QmnJ4KT2qrsl2/NISL5jLM2GG6FnduMs+LBmSNswnfQYAuFQ1RmkPC4Tnhescbx7eOGH0Mg==}
     peerDependencies:
       vue: ^3.2.41
 
@@ -6160,7 +6160,7 @@ snapshots:
 
   kuler@2.0.0: {}
 
-  lazy-js-utils@0.0.94(vue@3.2.41):
+  lazy-js-utils@0.0.95(vue@3.2.41):
     dependencies:
       htmlparser2: 8.0.2
       qrcode: 1.5.3

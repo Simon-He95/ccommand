@@ -346,10 +346,16 @@ export async function ccommand(userParams?: string) {
   const [command, text] = await getCommand()
   const _command = command.replace(/\s+/g, ' ')
 
-  const { status, result } = jsShell(_command, {
-    stdio: 'pipe',
+  const { status, result = '' } = jsShell(_command, {
     errorExit: false,
   })
+
+  // todo: 当 stdio 默认是 inherit 时, 会直接输出到控制台, 但是这样会导致无法捕获到错误
+  // const { status, result = '' } = await useNodeWorker({
+  //   stdio: 'pipe',
+  //   params: _command,
+  // })
+
   if (status === 0) {
     setTimeout(() => {
       jsShell('zsh')
@@ -364,7 +370,6 @@ export async function ccommand(userParams?: string) {
   else if (
     result.includes('pnpm versions with respective Node.js version support')
   ) {
-    log(result)
     log(
       colorize({
         text: isZh
@@ -386,9 +391,7 @@ export async function ccommand(userParams?: string) {
       )
     }
   }
-  else {
-    log(result)
-  }
+
   log(
     colorize({
       color: 'red',
@@ -472,7 +475,7 @@ export async function ccommand(userParams?: string) {
 
   async function runScript(script: string, prefix: string) {
     let status
-    let result
+    let result = ''
     const arg = argv[0]?.trim()
     if (script && arg && arg !== script) {
       log(
@@ -508,10 +511,16 @@ export async function ccommand(userParams?: string) {
         break
       }
       case 'pnpm': {
-        const { status: _status, result: _result } = jsShell(
+        const { status: _status, result: _result = '' } = jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-          { stdio: 'pipe', errorExit: false },
+          { errorExit: false, isLog: false },
         )
+
+        // const { status: _status, result: _result = '' } = await useNodeWorker({
+        //   stdio: 'pipe',
+        //   params: `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
+        // })
+
         result = _result
         status = _status
         if (
@@ -519,7 +528,6 @@ export async function ccommand(userParams?: string) {
             'pnpm versions with respective Node.js version support',
           )
         ) {
-          log(result)
           log(
             colorize({
               text: isZh
@@ -572,9 +580,7 @@ export async function ccommand(userParams?: string) {
         }),
       )
     }
-    else {
-      log(result)
-    }
+
     return log(
       colorize({
         color: 'red',

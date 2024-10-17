@@ -707,7 +707,6 @@ async function pushHistory(command: string) {
       bold: true,
     }),
   )
-  return
   // if (isWin()) {
   //   const env = process.env as any
   //   const historyFile = env.HOMEDRIVE + env.HOMEPATH

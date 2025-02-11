@@ -156,10 +156,6 @@ export async function ccommand(userParams?: string) {
         }
         await runScript(script.trim()!, '')
 
-        setTimeout(() => {
-          jsShell('zsh')
-        }, 10)
-
         return
       }
       else {
@@ -267,9 +263,6 @@ export async function ccommand(userParams?: string) {
         const pkg = ((await getPkg('./package.json')) || {})?.scripts
         if (pkg && pkg[argv[0]]) {
           await runScript(argv[0], argv.slice(1).join(' '))
-          setTimeout(() => {
-            jsShell('zsh')
-          }, 10)
           return
         }
         else if (pkg && name) {
@@ -289,9 +282,6 @@ export async function ccommand(userParams?: string) {
           }
           const prefix = argv.slice(1).join(' ')
           await runScript(script, prefix)
-          setTimeout(() => {
-            jsShell('zsh')
-          }, 10)
           return
         }
       }

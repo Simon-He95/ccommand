@@ -1,7 +1,8 @@
 import fsp from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'path'
-import { getPkg, getPkgTool, isPlainObject, jsShell } from 'lazy-js-utils'
+import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/dist/node'
+import { isPlainObject } from 'lazy-js-utils'
 import fg from 'fast-glob'
 import colorize from '@simon_he/colorize'
 import terminalLink from 'terminal-link'
@@ -31,7 +32,7 @@ const notfound = isZh
 const runMsg = isZh ? '正在为您执行...' : 'is running for you...'
 
 export async function ccommand(userParams?: string) {
-  gumInstall(isZh)
+  await gumInstall(isZh)
   const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
@@ -91,11 +92,11 @@ export async function ccommand(userParams?: string) {
   else if (argv[0]?.endsWith('.rs')) {
     const argv0 = argv[0]
     // rust 文件直接执行
-    const status = jsShell(`rustc ${argv0}`).status
+    const status = (await jsShell(`rustc ${argv0}`)).status
     if (status === 0) {
       await pushHistory(`prun ${argv0}`)
       // 运行变异后的文件
-      jsShell(`./${argv0.slice(0, argv0.length - 3)}`)
+      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`)
       log(
         colorize({
           color: 'green',
@@ -141,7 +142,7 @@ export async function ccommand(userParams?: string) {
           script = fuzzyMatch(fuzzyOptions, userParams)!
         }
         else {
-          const { result, status } = jsShell(
+          const { result, status } = await jsShell(
             `echo "${options
               .map(i => i.name)
               .join(
@@ -171,18 +172,21 @@ export async function ccommand(userParams?: string) {
       }
     }
     catch (error) {
-      return log(
-        colorize({
-          color: 'red',
-          text: notfound,
-        }),
-      )
+      if (argv[0] !== 'find') {
+        return log(
+          colorize({
+            color: 'red',
+            text: notfound,
+          }),
+        )
+      }
     }
   }
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
   let scripts: Record<string, string>
   if (argv[0] === 'find') {
+    console.log({ fuzzyWorkspace, termStart })
     if (fuzzyWorkspace) {
       await getData(termStart as any)
       dirname = workspaceNames.filter(name =>
@@ -195,7 +199,7 @@ export async function ccommand(userParams?: string) {
         if (!workspaceNames.length)
           return log(colorize({ color: 'yellow', text: noWorkspaceText }))
 
-        const { result: choose, status } = jsShell(
+        const { result: choose, status } = await jsShell(
           `echo ${workspaceNames.join(
             ',',
           )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
@@ -220,7 +224,7 @@ export async function ccommand(userParams?: string) {
           )
         }
 
-        const { result: choose, status } = jsShell(
+        const { result: choose, status } = await jsShell(
           `echo ${workspaceNames.join(
             ',',
           )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
@@ -237,6 +241,11 @@ export async function ccommand(userParams?: string) {
           return cancel()
         dirname = choose.trim()
       }
+      // else {
+      //   // 判断 rust 环境 ./folder/Cargo.toml 如果存在则，提供 folder_name 作为选择去执行
+      //   const cwd = process.cwd()
+
+      // }
       else {
         return log(
           colorize({
@@ -257,7 +266,7 @@ export async function ccommand(userParams?: string) {
       try {
         const pkg = ((await getPkg('./package.json')) || {})?.scripts
         if (pkg && pkg[argv[0]]) {
-          runScript(argv[0], argv.slice(1).join(' '))
+          await runScript(argv[0], argv.slice(1).join(' '))
           setTimeout(() => {
             jsShell('zsh')
           }, 10)
@@ -279,7 +288,7 @@ export async function ccommand(userParams?: string) {
             process.exit(1)
           }
           const prefix = argv.slice(1).join(' ')
-          runScript(script, prefix)
+          await runScript(script, prefix)
           setTimeout(() => {
             jsShell('zsh')
           }, 10)
@@ -324,9 +333,12 @@ export async function ccommand(userParams?: string) {
       result += `"${key}: ${value.replace(/["`]/g, '\\$1')}"${splitFlag}`
       return result
     }, '')
-    const { result, status } = jsShell(
+    const { result, status } = await jsShell(
       `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
-      'pipe',
+      {
+        stdio: ['inherit', 'pipe', 'inherit'],
+        isLog: false,
+      },
     )
     if (status === cancelCode)
       return cancel()
@@ -345,9 +357,9 @@ export async function ccommand(userParams?: string) {
 
   const [command, text] = await getCommand()
   const _command = command.replace(/\s+/g, ' ')
-
-  const { status, result = '' } = jsShell(_command, {
+  const { status, result = '' } = await jsShell(_command, {
     errorExit: false,
+    stdio: 'inherit',
   })
 
   // todo: 当 stdio 默认是 inherit 时, 会直接输出到控制台, 但是这样会导致无法捕获到错误
@@ -357,9 +369,6 @@ export async function ccommand(userParams?: string) {
   // })
 
   if (status === 0) {
-    setTimeout(() => {
-      jsShell('zsh')
-    }, 10)
     return log(
       colorize({
         color: 'green',
@@ -378,11 +387,10 @@ export async function ccommand(userParams?: string) {
         color: 'yellow',
       }),
     )
-    const { status } = jsShell(`npm run ${val}${params ? ` -- ${params}` : ''}`)
+    const { status } = await jsShell(
+      `npm run ${val}${params ? ` -- ${params}` : ''}`,
+    )
     if (status === 0) {
-      setTimeout(() => {
-        jsShell('zsh')
-      }, 10)
       return log(
         colorize({
           color: 'green',
@@ -501,9 +509,10 @@ export async function ccommand(userParams?: string) {
         }),
       )
     }
+
     switch (termStart) {
       case 'npm': {
-        const { status: _status, result: _result } = jsShell(
+        const { status: _status, result: _result } = await jsShell(
           `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
         )
         status = _status
@@ -511,7 +520,7 @@ export async function ccommand(userParams?: string) {
         break
       }
       case 'pnpm': {
-        const { status: _status, result: _result = '' } = jsShell(
+        const { status: _status, result: _result = '' } = await jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
           { errorExit: false, isLog: false },
         )
@@ -536,7 +545,7 @@ export async function ccommand(userParams?: string) {
               color: 'yellow',
             }),
           )
-          const { status: _status, result: _result } = jsShell(
+          const { status: _status, result: _result } = await jsShell(
             `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
           )
           status = _status
@@ -545,7 +554,7 @@ export async function ccommand(userParams?: string) {
         break
       }
       case 'yarn': {
-        const { status: _status, result: _result } = jsShell(
+        const { status: _status, result: _result } = await jsShell(
           `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
         )
         status = _status
@@ -553,7 +562,7 @@ export async function ccommand(userParams?: string) {
         break
       }
       case 'bun': {
-        const { status: _status, result: _result } = jsShell(
+        const { status: _status, result: _result } = await jsShell(
           `bun run ${script} ${prefix}`,
         )
         status = _status
@@ -561,7 +570,7 @@ export async function ccommand(userParams?: string) {
         break
       }
       case 'make': {
-        const { status: _status, result: _result } = jsShell(
+        const { status: _status, result: _result } = await jsShell(
           `make ${script} ${prefix}`,
         )
         status = _status

@@ -504,6 +504,11 @@ export async function ccommand(userParams?: string) {
       case 'npm': {
         const { status: _status, result: _result } = await jsShell(
           `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
+          {
+            errorExit: false,
+            isLog: false,
+            stdio: ['inherit', 'pipe', 'inherit'],
+          },
         )
         status = _status
         result = _result
@@ -512,7 +517,11 @@ export async function ccommand(userParams?: string) {
       case 'pnpm': {
         const { status: _status, result: _result = '' } = await jsShell(
           `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-          { errorExit: false, isLog: false },
+          {
+            errorExit: false,
+            isLog: false,
+            stdio: ['inherit', 'pipe', 'inherit'],
+          },
         )
 
         // const { status: _status, result: _result = '' } = await useNodeWorker({
@@ -546,6 +555,11 @@ export async function ccommand(userParams?: string) {
       case 'yarn': {
         const { status: _status, result: _result } = await jsShell(
           `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
+          {
+            errorExit: false,
+            isLog: false,
+            stdio: ['inherit', 'pipe', 'inherit'],
+          },
         )
         status = _status
         result = _result
@@ -554,6 +568,11 @@ export async function ccommand(userParams?: string) {
       case 'bun': {
         const { status: _status, result: _result } = await jsShell(
           `bun run ${script} ${prefix}`,
+          {
+            errorExit: false,
+            isLog: false,
+            stdio: ['inherit', 'pipe', 'inherit'],
+          },
         )
         status = _status
         result = _result
@@ -562,6 +581,11 @@ export async function ccommand(userParams?: string) {
       case 'make': {
         const { status: _status, result: _result } = await jsShell(
           `make ${script} ${prefix}`,
+          {
+            errorExit: false,
+            isLog: false,
+            stdio: ['inherit', 'pipe', 'inherit'],
+          },
         )
         status = _status
         result = _result

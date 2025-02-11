@@ -96,7 +96,7 @@ export async function ccommand(userParams?: string) {
     if (status === 0) {
       await pushHistory(`prun ${argv0}`)
       // 运行变异后的文件
-      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`)
+      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`, 'inherit')
       log(
         colorize({
           color: 'green',
@@ -379,6 +379,7 @@ export async function ccommand(userParams?: string) {
     )
     const { status } = await jsShell(
       `npm run ${val}${params ? ` -- ${params}` : ''}`,
+      'inherit',
     )
     if (status === 0) {
       return log(
@@ -507,7 +508,7 @@ export async function ccommand(userParams?: string) {
           {
             errorExit: false,
             isLog: false,
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: 'inherit',
           },
         )
         status = _status
@@ -520,7 +521,7 @@ export async function ccommand(userParams?: string) {
           {
             errorExit: false,
             isLog: false,
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: 'inherit',
           },
         )
 
@@ -546,6 +547,11 @@ export async function ccommand(userParams?: string) {
           )
           const { status: _status, result: _result } = await jsShell(
             `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
+            {
+              errorExit: false,
+              isLog: false,
+              stdio: 'inherit',
+            },
           )
           status = _status
           result = _result
@@ -558,7 +564,7 @@ export async function ccommand(userParams?: string) {
           {
             errorExit: false,
             isLog: false,
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: 'inherit',
           },
         )
         status = _status
@@ -571,7 +577,7 @@ export async function ccommand(userParams?: string) {
           {
             errorExit: false,
             isLog: false,
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: 'inherit',
           },
         )
         status = _status
@@ -584,7 +590,7 @@ export async function ccommand(userParams?: string) {
           {
             errorExit: false,
             isLog: false,
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: 'inherit',
           },
         )
         status = _status

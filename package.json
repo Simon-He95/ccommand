@@ -1,6 +1,6 @@
 {
   "name": "ccommand",
-  "version": "1.0.71",
+  "version": "1.0.72",
   "packageManager": "pnpm@6.35.1",
   "description": "ccommand",
   "author": "Simon He",

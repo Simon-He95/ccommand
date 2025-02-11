@@ -60,7 +60,7 @@
     "@types/node": "^17.0.45",
     "@vitejs/plugin-vue": "^3.2.0",
     "bumpp": "^8.2.1",
-    "eslint": "^8.57.1",
+    "eslint": "^9.0.0",
     "eslint-plugin-n": "^15.7.0",
     "lint-staged": "^13.3.0",
     "picocolors": "^1.1.1",

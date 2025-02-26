@@ -182,7 +182,6 @@ export async function ccommand(userParams?: string) {
   let dirname = name
   let scripts: Record<string, string>
   if (argv[0] === 'find') {
-    console.log({ fuzzyWorkspace, termStart })
     if (fuzzyWorkspace) {
       await getData(termStart as any)
       dirname = workspaceNames.filter(name =>
@@ -320,7 +319,9 @@ export async function ccommand(userParams?: string) {
     const options = Object.keys(scripts).reduce((result, key) => {
       const value = scripts[key]
       keys.push(key)
-      result += `"${key}: ${value.replace(/["`]/g, '\\$1')}"${splitFlag}`
+      result += `"${key}: ${value
+        .replace(/\\/g, '\\\\')
+        .replace(/(["`])/g, '\\$1')}"${splitFlag}`
       return result
     }, '')
     const { result, status } = await jsShell(

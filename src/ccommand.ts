@@ -1,7 +1,7 @@
 import fsp from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'path'
-import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/dist/node'
+import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
 import { isPlainObject } from 'lazy-js-utils'
 import fg from 'fast-glob'
 import colorize from '@simon_he/colorize'

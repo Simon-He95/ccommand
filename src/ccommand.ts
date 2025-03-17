@@ -118,6 +118,39 @@ export async function ccommand(userParams?: string) {
     }
     return
   }
+  else if (argv[0]?.endsWith('.py')) {
+    // Python文件直接执行
+    const argv0 = argv[0]
+    await pushHistory(`prun ${argv0}`)
+
+    const { status } = await jsShell(`python ${argv0}`, {
+      errorExit: false,
+      isLog: false,
+      stdio: 'inherit',
+    })
+
+    if (status === 0) {
+      log(
+        colorize({
+          color: 'green',
+          text: `\n"prun ${argv0}" ${successText} 🎉`,
+        }),
+      )
+    }
+    else {
+      log(
+        colorize({
+          color: 'red',
+          text: `\ncommand ${colorize({
+            bold: true,
+            color: 'cyan',
+            text: `"prun ${argv0}"`,
+          })} ${failedText} ❌`,
+        }),
+      )
+    }
+    return
+  }
   let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'make'
   try {
     termStart = await getPkgTool()
@@ -257,6 +290,7 @@ export async function ccommand(userParams?: string) {
   }
   else {
     scripts = await getScripts()
+
     if ((name && cacheData && !cacheData[name]) || !cacheData) {
       try {
         const pkg = ((await getPkg('./package.json')) || {})?.scripts
@@ -267,6 +301,114 @@ export async function ccommand(userParams?: string) {
         else if (pkg && name) {
           const script = fuzzyMatch(pkg, argv[0])!
           if (!script) {
+            // 检查是否存在Python文件
+            const pythonFile = `${name}.py`
+            if (existsSync(pythonFile)) {
+              log(
+                colorize({
+                  text: `🤔 ${
+                    isZh ? '找到Python文件' : 'Found Python file'
+                  }: ${pythonFile}`,
+                  color: 'yellow',
+                }),
+              )
+              await pushHistory(`prun ${pythonFile}`)
+
+              const { status } = await jsShell(`python ${pythonFile}`, {
+                errorExit: false,
+                isLog: false,
+                stdio: 'inherit',
+              })
+
+              if (status === 0) {
+                log(
+                  colorize({
+                    color: 'green',
+                    text: `\n"prun ${pythonFile}" ${successText} 🎉`,
+                  }),
+                )
+              }
+              else {
+                log(
+                  colorize({
+                    color: 'red',
+                    text: `\ncommand ${colorize({
+                      bold: true,
+                      color: 'cyan',
+                      text: `"prun ${pythonFile}"`,
+                    })} ${failedText} ❌`,
+                  }),
+                )
+              }
+              return
+            }
+            // 检查是否存在Rust文件
+            const rustFile = `${name}.rs`
+            if (existsSync(rustFile)) {
+              log(
+                colorize({
+                  text: `🤔 ${
+                    isZh ? '找到Rust文件' : 'Found Rust file'
+                  }: ${rustFile}`,
+                  color: 'yellow',
+                }),
+              )
+              await pushHistory(`prun ${rustFile}`)
+
+              // 编译Rust文件
+              const { status: compileStatus } = await jsShell(
+                `rustc ${rustFile}`,
+                {
+                  errorExit: false,
+                  isLog: false,
+                  stdio: 'inherit',
+                },
+              )
+
+              if (compileStatus === 0) {
+                // 运行编译后的文件
+                const { status: runStatus } = await jsShell(`./${argv[0]}`, {
+                  errorExit: false,
+                  isLog: false,
+                  stdio: 'inherit',
+                })
+
+                if (runStatus === 0) {
+                  log(
+                    colorize({
+                      color: 'green',
+                      text: `\n"prun ${rustFile}" ${successText} 🎉`,
+                    }),
+                  )
+                }
+                else {
+                  log(
+                    colorize({
+                      color: 'red',
+                      text: `\ncommand ${colorize({
+                        bold: true,
+                        color: 'cyan',
+                        text: `"prun ${rustFile}"`,
+                      })} ${failedText} ❌`,
+                    }),
+                  )
+                }
+              }
+              else {
+                log(
+                  colorize({
+                    color: 'red',
+                    text: `\ncommand ${colorize({
+                      bold: true,
+                      color: 'cyan',
+                      text: `"prun ${rustFile}"`,
+                    })} ${failedText} ❌`,
+                  }),
+                )
+              }
+              return
+            }
+
             log(
               colorize({
                 color: 'red',
@@ -279,25 +421,14 @@ export async function ccommand(userParams?: string) {
             )
             process.exit(1)
           }
-          const prefix = argv.slice(1).join(' ')
-          await runScript(script, prefix)
-          return
+          else {
+            const prefix = argv.slice(1).join(' ')
+            await runScript(script, prefix)
+            return
+          }
         }
       }
       catch (error) {}
-    }
-    if (cacheData && !cacheData[argv[0]]) {
-      log(
-        colorize({
-          color: 'red',
-          text: `"${argv[0]}" ${
-            isZh
-              ? '在工作区、当前目录中找不到任何可执行的脚本,请检查'
-              : 'is not found in workspace, current directory or current scripts, please check'
-          }`,
-        }),
-      )
-      process.exit()
     }
   }
 

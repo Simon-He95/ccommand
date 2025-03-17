@@ -18,8 +18,8 @@ importers:
         specifier: ^3.3.3
         version: 3.3.3
       lazy-js-utils:
-        specifier: ^0.1.31
-        version: 0.1.31
+        specifier: ^0.1.32
+        version: 0.1.32
       yamljs:
         specifier: ^0.3.0
         version: 0.3.0
@@ -2201,8 +2201,8 @@ packages:
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
 
-  lazy-js-utils@0.1.31:
-    resolution: {integrity: sha512-RVlol1gSkAIuSceoJeHyiJWJenkUiy9JuCDZwXFLi/Wk6ZAhuh9Jsuslo6IhzL6knTLWlzAaE0UmT+VDywwH9A==}
+  lazy-js-utils@0.1.32:
+    resolution: {integrity: sha512-KeuHGgpE6Kwft9O9pZNzy+JMMC5Sn2wjzTCj4HBcUR+dVw6HifZYO4dU6rXOD2awbCh83Q2ohdcTf+3byj7V0w==}
 
   levn@0.3.0:
     resolution: {integrity: sha512-0OO4y2iOHix2W6ujICbKIaEQXvFQHue65vUG3pb5EUomzPI90z9hsA1VsO/dbIIpC53J8gxM9Q4Oho0jrCM/yA==}
@@ -5539,7 +5539,7 @@ snapshots:
 
   kuler@2.0.0: {}
 
-  lazy-js-utils@0.1.31:
+  lazy-js-utils@0.1.32:
     dependencies:
       htmlparser2: 8.0.2
       qrcode: 1.5.4

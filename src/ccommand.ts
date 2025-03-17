@@ -202,7 +202,7 @@ export async function ccommand(userParams?: string) {
               ? '请选择一个要执行的目录'
               : 'Please select a directory to execute'
           }"`,
-          'pipe',
+          ['inherit', 'pipe', 'inherit'],
         )
         dirname = choose
         if (status === cancelCode)
@@ -641,7 +641,6 @@ async function getData(type: 'pnpm' | 'yarn') {
         )
   }
   catch (error) {}
-
   let packages
   if (type === 'pnpm') {
     packages = YAML.parse(workspace)?.packages || []
@@ -656,6 +655,7 @@ async function getData(type: 'pnpm' | 'yarn') {
   workspaceNames = Object.keys(cacheData).filter(
     key => cacheData[key] && Object.keys(cacheData[key]).length,
   )
+
   return cacheData
 }
 

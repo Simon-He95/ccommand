@@ -34,7 +34,7 @@
   ],
   "scripts": {
     "build": "tsup ./src/index.ts ./src/cli.ts --minify",
-    "dev": "tsup --watch",
+    "dev": "tsup ./src/index.ts ./src/cli.ts --watch",
     "play": "pnpm run -C playground dev",
     "play:build": "pnpm run -C playground build",
     "format": "prettier --write --cache .",

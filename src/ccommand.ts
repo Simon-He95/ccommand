@@ -13,11 +13,6 @@ import { readMakefile } from './makefile'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
 
-interface IParams {
-  name: string
-  scripts: Record<string, string>
-}
-
 let workspaceNames: string[] = []
 let cacheData: any = null
 const log = console.log
@@ -30,6 +25,60 @@ const notfound = isZh
   : 'The current directory and not found package.json file'
 
 const runMsg = isZh ? '正在为您执行...' : 'is running for you...'
+
+async function executeFile(
+  filePath: string,
+  command: string,
+  successText: string,
+  failedText: string,
+) {
+  await pushHistory(`prun ${filePath}`)
+  const { status } = await jsShell(command, {
+    errorExit: false,
+    isLog: false,
+    stdio: 'inherit',
+  })
+
+  log(
+    colorize({
+      color: status === 0 ? 'green' : 'red',
+      text: `\n"prun ${filePath}" ${status === 0 ? successText : failedText} ${
+        status === 0 ? '🎉' : '❌'
+      }`,
+    }),
+  )
+}
+
+async function handleFileExecution(
+  argv0: string,
+  successText: string,
+  failedText: string,
+) {
+  if (argv0.endsWith('.py')) {
+    await executeFile(argv0, `python ${argv0}`, successText, failedText)
+  }
+  else if (argv0.endsWith('.rs')) {
+    const compileStatus = (await jsShell(`rustc ${argv0}`)).status
+    if (compileStatus === 0) {
+      await pushHistory(`prun ${argv0}`)
+      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`, 'inherit')
+      log(
+        colorize({
+          color: 'green',
+          text: `\n"prun ${argv0}" ${successText} 🎉`,
+        }),
+      )
+    }
+    else {
+      log(
+        colorize({
+          color: 'red',
+          text: `\ncommand "prun ${argv0}" ${failedText} ❌`,
+        }),
+      )
+    }
+  }
+}
 
 export async function ccommand(userParams?: string) {
   await gumInstall(isZh)
@@ -89,66 +138,8 @@ export async function ccommand(userParams?: string) {
       }),
     )
   }
-  else if (argv[0]?.endsWith('.rs')) {
-    const argv0 = argv[0]
-    // rust 文件直接执行
-    const status = (await jsShell(`rustc ${argv0}`)).status
-    if (status === 0) {
-      await pushHistory(`prun ${argv0}`)
-      // 运行变异后的文件
-      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`, 'inherit')
-      log(
-        colorize({
-          color: 'green',
-          text: `\n"prun ${argv0}" ${successText} 🎉`,
-        }),
-      )
-    }
-    else {
-      log(
-        colorize({
-          color: 'red',
-          text: `\ncommand ${colorize({
-            bold: true,
-            color: 'cyan',
-            text: `"prun ${argv0}"`,
-          })} ${failedText} ❌`,
-        }),
-      )
-    }
-    return
-  }
-  else if (argv[0]?.endsWith('.py')) {
-    // Python文件直接执行
-    const argv0 = argv[0]
-    await pushHistory(`prun ${argv0}`)
-
-    const { status } = await jsShell(`python ${argv0}`, {
-      errorExit: false,
-      isLog: false,
-      stdio: 'inherit',
-    })
-
-    if (status === 0) {
-      log(
-        colorize({
-          color: 'green',
-          text: `\n"prun ${argv0}" ${successText} 🎉`,
-        }),
-      )
-    }
-    else {
-      log(
-        colorize({
-          color: 'red',
-          text: `\ncommand ${colorize({
-            bold: true,
-            color: 'cyan',
-            text: `"prun ${argv0}"`,
-          })} ${failedText} ❌`,
-        }),
-      )
-    }
+  else if (argv[0]?.endsWith('.py') || argv[0]?.endsWith('.rs')) {
+    await handleFileExecution(argv[0], successText, failedText)
     return
   }
   let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'make'
@@ -260,10 +251,7 @@ export async function ccommand(userParams?: string) {
               ? '请选择一个要执行的目录'
               : 'Please select a directory to execute'
           }"`,
-          {
-            stdio: 'pipe',
-            isLog: true,
-          },
+          ['inherit', 'pipe', 'inherit'],
         )
         if (status === cancelCode)
           return cancel()
@@ -755,39 +743,92 @@ export async function ccommand(userParams?: string) {
   }
 }
 
-async function getData(type: 'pnpm' | 'yarn') {
-  if (cacheData)
-    return cacheData
-  let workspace = ''
+async function readWorkspaceFile(type: 'pnpm' | 'yarn'): Promise<string> {
+  const filePath
+    = type === 'pnpm'
+      ? path.resolve(process.cwd(), 'pnpm-workspace.yaml')
+      : path.resolve(process.cwd(), 'package.json')
   try {
-    workspace
-      = type === 'pnpm'
-        ? await fsp.readFile(
-          path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
-          'utf-8',
-        )
-        : await fsp.readFile(
-          path.resolve(process.cwd(), 'package.json'),
-          'utf-8',
-        )
+    return await fsp.readFile(filePath, 'utf-8')
   }
-  catch (error) {}
-  let packages
+  catch {
+    return ''
+  }
+}
+
+function parseWorkspacePackages(
+  type: 'pnpm' | 'yarn',
+  workspace: string,
+): string[] {
   if (type === 'pnpm') {
-    packages = YAML.parse(workspace)?.packages || []
+    return YAML.parse(workspace)?.packages || []
   }
   else {
     const _workspace = JSON.parse(workspace)?.workspaces
     if (isPlainObject(_workspace))
-      packages = _workspace?.packages
-    else packages = _workspace || []
+      return _workspace?.packages || []
+
+    return _workspace || []
   }
+}
+
+async function loadWorkspaceData(
+  type: 'pnpm' | 'yarn',
+): Promise<Record<string, Record<string, string>>> {
+  if (cacheData)
+    return cacheData
+
+  const workspace = await readWorkspaceFile(type)
+  const packages = parseWorkspacePackages(type, workspace)
+
   cacheData = (await readGlob(packages)) || {}
   workspaceNames = Object.keys(cacheData).filter(
     key => cacheData[key] && Object.keys(cacheData[key]).length,
   )
 
   return cacheData
+}
+
+async function readGlob(
+  packages: string[],
+): Promise<Record<string, Record<string, string>>> {
+  if (!packages.length)
+    return {}
+
+  const entries = await fg(
+    packages.map(v => `${v}/package.json`),
+    { dot: true, ignore: ['**/node_modules/**'] },
+  )
+
+  const results = await Promise.all(
+    entries.map(async (v) => {
+      const pkg = await getPkg(v)
+      if (!pkg)
+        return null
+      const { name, scripts } = pkg
+      return { name, scripts }
+    }),
+  )
+
+  return results.reduce((result, pkg) => {
+    if (!pkg || !pkg.name || !pkg.scripts)
+      return result
+
+    result[pkg.name] = Object.keys(pkg.scripts).reduce((scripts, key) => {
+      if (!key.startsWith('//'))
+        scripts[key] = pkg.scripts[key]
+
+      return scripts
+    }, {} as Record<string, string>)
+
+    return result
+  }, {} as Record<string, Record<string, string>>)
+}
+
+export async function getData(
+  type: 'pnpm' | 'yarn',
+): Promise<Record<string, Record<string, string>>> {
+  return loadWorkspaceData(type)
 }
 
 function getParams(params: string[]): [string, string, string] {
@@ -800,39 +841,6 @@ function getParams(params: string[]): [string, string, string] {
     return [first, '', params.slice(1).join(' ')]
 
   return [first, params[1], params.slice(2).join(' ')]
-}
-
-async function readGlob(packages: string[]) {
-  if (!packages.length)
-    return
-  const entries = await fg(
-    packages.map(v => `${v}/package.json`),
-    { dot: true, ignore: ['**/node_modules/**'] },
-  )
-  return Promise.all(
-    entries.map(async (v) => {
-      const pkg = await getPkg(v)
-      if (!pkg)
-        return
-      const { name, scripts } = pkg
-      return { name, scripts }
-    }) as Promise<IParams>[],
-  ).then(v =>
-    v.reduce((result, v) => {
-      const { name, scripts } = v
-      // 过滤没有scripts或name的子包
-      if (!name || !scripts)
-        return result
-      // scripts 中可能存在被注释的情况，需要过滤掉
-      result[name] = Object.keys(scripts).reduce((r, k) => {
-        if (k.startsWith('//'))
-          return r
-        r[k] = scripts[k]
-        return r
-      }, {} as Record<string, string>)
-      return result
-    }, {} as Record<string, Record<string, string>>),
-  )
 }
 
 function fuzzyMatch(scripts: Record<string, string>, params: string) {

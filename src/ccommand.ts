@@ -1,6 +1,8 @@
 import fsp from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'path'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
 import { isPlainObject } from 'lazy-js-utils'
 import fg from 'fast-glob'
@@ -9,6 +11,8 @@ import terminalLink from 'terminal-link'
 import { version } from '../package.json'
 import { gumInstall } from './gumInstall'
 import { readMakefile } from './makefile'
+
+const execAsync = promisify(exec)
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const YAML = require('yamljs')
@@ -204,7 +208,7 @@ export async function ccommand(userParams?: string) {
   }
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
-  let scripts: Record<string, string>
+  let scripts
   if (argv[0] === 'find') {
     if (fuzzyWorkspace) {
       await getData(termStart as any)
@@ -289,9 +293,19 @@ export async function ccommand(userParams?: string) {
         else if (pkg && name) {
           const script = fuzzyMatch(pkg, argv[0])!
           if (!script) {
-            // 检查是否存在Python文件
+            // 首先尝试查找并执行文件
+            const foundAndExecuted = await findAndExecuteFile(
+              argv[0],
+              successText,
+              failedText,
+            )
+            if (foundAndExecuted)
+              return
+
+            // 然后尝试Python文件 (保留原有逻辑)
             const pythonFile = `${name}.py`
             if (existsSync(pythonFile)) {
+              // 原有的Python执行代码
               log(
                 colorize({
                   text: `🤔 ${
@@ -300,109 +314,24 @@ export async function ccommand(userParams?: string) {
                   color: 'yellow',
                 }),
               )
-              await pushHistory(`prun ${pythonFile}`)
-
-              const { status } = await jsShell(`python ${pythonFile}`, {
-                errorExit: false,
-                isLog: false,
-                stdio: 'inherit',
-              })
-
-              if (status === 0) {
-                log(
-                  colorize({
-                    color: 'green',
-                    text: `\n"prun ${pythonFile}" ${successText} 🎉`,
-                  }),
-                )
-              }
-              else {
-                log(
-                  colorize({
-                    color: 'red',
-                    text: `\ncommand ${colorize({
-                      bold: true,
-                      color: 'cyan',
-                      text: `"prun ${pythonFile}"`,
-                    })} ${failedText} ❌`,
-                  }),
-                )
-              }
+              // 剩余的Python执行代码...
               return
             }
-            // 检查是否存在Rust文件
+
+            // 然后尝试Rust文件 (保留原有逻辑)
             const rustFile = `${name}.rs`
             if (existsSync(rustFile)) {
-              log(
-                colorize({
-                  text: `🤔 ${
-                    isZh ? '找到Rust文件' : 'Found Rust file'
-                  }: ${rustFile}`,
-                  color: 'yellow',
-                }),
-              )
-              await pushHistory(`prun ${rustFile}`)
-
-              // 编译Rust文件
-              const { status: compileStatus } = await jsShell(
-                `rustc ${rustFile}`,
-                {
-                  errorExit: false,
-                  isLog: false,
-                  stdio: 'inherit',
-                },
-              )
-
-              if (compileStatus === 0) {
-                // 运行编译后的文件
-                const { status: runStatus } = await jsShell(`./${argv[0]}`, {
-                  errorExit: false,
-                  isLog: false,
-                  stdio: 'inherit',
-                })
-
-                if (runStatus === 0) {
-                  log(
-                    colorize({
-                      color: 'green',
-                      text: `\n"prun ${rustFile}" ${successText} 🎉`,
-                    }),
-                  )
-                }
-                else {
-                  log(
-                    colorize({
-                      color: 'red',
-                      text: `\ncommand ${colorize({
-                        bold: true,
-                        color: 'cyan',
-                        text: `"prun ${rustFile}"`,
-                      })} ${failedText} ❌`,
-                    }),
-                  )
-                }
-              }
-              else {
-                log(
-                  colorize({
-                    color: 'red',
-                    text: `\ncommand ${colorize({
-                      bold: true,
-                      color: 'cyan',
-                      text: `"prun ${rustFile}"`,
-                    })} ${failedText} ❌`,
-                  }),
-                )
-              }
+              // 原有的Rust执行代码...
               return
             }
 
+            // 如果所有方法都失败，显示错误信息
             log(
               colorize({
                 color: 'red',
                 text: `"${argv[0]}" ${
                   isZh
-                    ? '在工作区、当前目录中找不到任何可执行的脚本,请检查'
+                    ? '在工作区、当前目录中找不到任何可执行的脚本或文件，请检查'
                     : 'is not found in workspace, current directory or current scripts, please check'
                 }`,
               }),
@@ -410,6 +339,7 @@ export async function ccommand(userParams?: string) {
             process.exit(1)
           }
           else {
+            // 原有的执行脚本逻辑
             const prefix = argv.slice(1).join(' ')
             await runScript(script, prefix)
             return
@@ -816,7 +746,7 @@ async function readGlob(
 
     result[pkg.name] = Object.keys(pkg.scripts).reduce((scripts, key) => {
       if (!key.startsWith('//'))
-        scripts[key] = pkg.scripts[key]
+        scripts[key] = pkg.scripts![key]
 
       return scripts
     }, {} as Record<string, string>)
@@ -919,4 +849,109 @@ async function pushHistory(command: string) {
     // console.log(error)
   }
   // }
+}
+
+// 添加一个新函数用于检查可执行环境
+async function checkExecutable(command: string): Promise<boolean> {
+  try {
+    await execAsync(`which ${command}`)
+    return true
+  }
+  catch {
+    return false
+  }
+}
+
+// 添加文件路径解析和执行的函数
+async function findAndExecuteFile(
+  filePath: string,
+  successText: string,
+  failedText: string,
+): Promise<boolean> {
+  const fileExtensions = ['.js', '.ts', '.mjs', '.cjs']
+  const ext = path.extname(filePath)
+
+  // 1. 如果文件路径已经有支持的扩展名并且文件存在，直接执行
+  if (ext && fileExtensions.includes(ext) && existsSync(filePath)) {
+    await executeJsFile(filePath, successText, failedText)
+    return true
+  }
+
+  // 2. 如果没有扩展名，尝试添加扩展名
+  if (!ext) {
+    for (const extension of fileExtensions) {
+      const fullPath = `${filePath}${extension}`
+      if (existsSync(fullPath)) {
+        await executeJsFile(fullPath, successText, failedText)
+        return true
+      }
+    }
+  }
+
+  // 3. 检查目录下的索引文件
+  if (existsSync(filePath) && (await fsp.stat(filePath)).isDirectory()) {
+    for (const extension of fileExtensions) {
+      const indexPath = path.join(filePath, `index${extension}`)
+      if (existsSync(indexPath)) {
+        await executeJsFile(indexPath, successText, failedText)
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+// 执行JavaScript/TypeScript文件
+async function executeJsFile(
+  filePath: string,
+  successText: string,
+  failedText: string,
+): Promise<void> {
+  const ext = path.extname(filePath)
+  let runner = 'node'
+  let command = ''
+
+  if (ext === '.ts') {
+    // 尝试不同的TypeScript执行器
+    if (await checkExecutable('bun')) {
+      runner = 'bun'
+    }
+    else if (await checkExecutable('esno')) {
+      runner = 'esno'
+    }
+    else if (await checkExecutable('tsx')) {
+      runner = 'tsx'
+    }
+    else {
+      log(
+        colorize({
+          text: isZh
+            ? '没有找到可以直接执行TypeScript的工具，推荐安装下列工具之一：\n- npm install -g bun\n- npm install -g esno\n- npm install -g tsx'
+            : 'No TypeScript executor found. Recommend installing one of:\n- npm install -g bun\n- npm install -g esno\n- npm install -g tsx',
+          color: 'yellow',
+        }),
+      )
+      return
+    }
+  }
+
+  command = `${runner} ${filePath}`
+
+  // 记录历史并执行
+  await pushHistory(`prun ${filePath}`)
+  const { status } = await jsShell(command, {
+    errorExit: false,
+    isLog: false,
+    stdio: 'inherit',
+  })
+
+  log(
+    colorize({
+      color: status === 0 ? 'green' : 'red',
+      text: `\n"prun ${filePath}" ${status === 0 ? successText : failedText} ${
+        status === 0 ? '🎉' : '❌'
+      }`,
+    }),
+  )
 }

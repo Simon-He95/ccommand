@@ -1,18 +1,11 @@
-import fsp from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import path from 'path'
-import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
+import fsp from 'node:fs/promises'
+import path from 'node:path'
+import process from 'node:process'
 import colorize from '@simon_he/colorize'
+import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
 import terminalLink from 'terminal-link'
 import { version } from '../package.json'
-import { gumInstall } from './gumInstall'
-import { readMakefile } from './makefile'
-
-// 导入新模块
-import { findAndExecuteFile, handleFileExecution } from './file-execution'
-import { getData, workspaceNames } from './workspace'
-import { fuzzyMatch, getParams } from './utils'
-import { pushHistory } from './history'
 import {
   cancel,
   cancelCode,
@@ -22,6 +15,14 @@ import {
   runMsg,
   splitFlag,
 } from './constants'
+
+// 导入新模块
+import { findAndExecuteFile, handleFileExecution } from './file-execution'
+import { gumInstall } from './gumInstall'
+import { pushHistory } from './history'
+import { readMakefile } from './makefile'
+import { fuzzyMatch, getParams } from './utils'
+import { getData, workspaceNames } from './workspace'
 
 const cacheData: any = null
 
@@ -91,6 +92,7 @@ export async function ccommand(userParams?: string) {
   try {
     termStart = await getPkgTool()
   }
+  // eslint-disable-next-line unused-imports/no-unused-vars
   catch (error) {
     // 如果都没有找到package.json文件，考虑一下rust的情况，判断目录下是否有Makefile文件
     try {
@@ -136,6 +138,7 @@ export async function ccommand(userParams?: string) {
         )
       }
     }
+    // eslint-disable-next-line unused-imports/no-unused-vars
     catch (error) {
       if (argv[0] !== 'find') {
         return log(
@@ -289,6 +292,7 @@ export async function ccommand(userParams?: string) {
           }
         }
       }
+      // eslint-disable-next-line unused-imports/no-unused-vars
       catch (error) {}
     }
   }
@@ -456,6 +460,7 @@ export async function ccommand(userParams?: string) {
         )
       }
     }
+    // eslint-disable-next-line unused-imports/no-unused-vars
     catch (error) {}
   }
 

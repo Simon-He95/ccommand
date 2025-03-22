@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "module": "NodeNext",
-    "lib": ["esnext", "DOM"],
-    "moduleResolution": "nodenext",
-    "esModuleInterop": true,
-    "strict": true,
     "jsx": "preserve",
-    "strictNullChecks": true,
+    "lib": ["esnext", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "skipDefaultLibCheck": true
+    "strict": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true
   },
   "exclude": ["dist", "playground", "cypress"]
 }

@@ -1,12 +1,12 @@
-import fsp from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-import path from 'path'
 import { exec } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import fsp from 'node:fs/promises'
+import path from 'node:path'
 import { promisify } from 'node:util'
-import { jsShell } from 'lazy-js-utils/node'
 import colorize from '@simon_he/colorize'
-import { pushHistory } from './history'
+import { jsShell } from 'lazy-js-utils/node'
 import { isZh, log } from './constants'
+import { pushHistory } from './history'
 
 const execAsync = promisify(exec)
 

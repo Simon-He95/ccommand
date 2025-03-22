@@ -1,10 +1,11 @@
 import fsp from 'node:fs/promises'
-import path from 'path'
-import { getPkg } from 'lazy-js-utils/node'
-import { isPlainObject } from 'lazy-js-utils'
+import path from 'node:path'
+import process from 'node:process'
 import fg from 'fast-glob'
+import { isPlainObject } from 'lazy-js-utils'
+import { getPkg } from 'lazy-js-utils/node'
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line ts/no-require-imports
 const YAML = require('yamljs')
 
 // eslint-disable-next-line import/no-mutable-exports

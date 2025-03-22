@@ -1,3 +1,4 @@
+import process from 'node:process'
 import colorize from '@simon_he/colorize'
 import { cancelledText, isZh, log } from './constants'
 

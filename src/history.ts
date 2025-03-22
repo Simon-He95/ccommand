@@ -1,5 +1,6 @@
-import fsp from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import fsp from 'node:fs/promises'
+import process from 'node:process'
 import colorize from '@simon_he/colorize'
 import { isZh, log } from './constants'
 
@@ -41,6 +42,7 @@ export async function pushHistory(command: string) {
     // 写回history
     await fsp.writeFile(historyFile, newInfo)
   }
+  // eslint-disable-next-line unused-imports/no-unused-vars
   catch (error) {
     // console.log(error)
   }

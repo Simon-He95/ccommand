@@ -1,6 +1,6 @@
 import colorize from '@simon_he/colorize'
 import { jsShell } from 'lazy-js-utils/node'
-import terminalLink from 'terminal-link'
+// import terminalLink from 'terminal-link'
 
 const log = console.log
 export async function gumInstall(isZh: boolean) {
@@ -19,6 +19,7 @@ export async function gumInstall(isZh: boolean) {
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
     sudo apt update && sudo apt install gum`)
       if (status !== 0) {
+        const terminalLink = (await import('terminal-link')).default
         const link = terminalLink(
           isZh ? 'gum官网链接' : 'the official website of gum',
           'https://github.com/charmbracelet/gum#installation',

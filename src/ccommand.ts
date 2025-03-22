@@ -4,7 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import colorize from '@simon_he/colorize'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
-import terminalLink from 'terminal-link'
+// import terminalLink from 'terminal-link'
 import { version } from '../package.json'
 import {
   cancel,
@@ -47,6 +47,7 @@ export async function ccommand(userParams?: string) {
     )
   }
   else if (argv[0] === '-h' || argv[0] === '--help') {
+    const terminalLink = (await import('terminal-link')).default
     const issueLink = terminalLink(
       isZh ? '打开一个新的问题' : 'open an issue',
       'https://github.com/Simon-He95/ccommand/issues',

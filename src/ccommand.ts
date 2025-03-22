@@ -1,88 +1,29 @@
 import fsp from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import path from 'path'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
-import { isPlainObject } from 'lazy-js-utils'
-import fg from 'fast-glob'
 import colorize from '@simon_he/colorize'
 import terminalLink from 'terminal-link'
 import { version } from '../package.json'
 import { gumInstall } from './gumInstall'
 import { readMakefile } from './makefile'
 
-const execAsync = promisify(exec)
+// 导入新模块
+import { findAndExecuteFile, handleFileExecution } from './file-execution'
+import { getData, workspaceNames } from './workspace'
+import { fuzzyMatch, getParams } from './utils'
+import { pushHistory } from './history'
+import {
+  cancel,
+  cancelCode,
+  isZh,
+  log,
+  notfound,
+  runMsg,
+  splitFlag,
+} from './constants'
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const YAML = require('yamljs')
-
-let workspaceNames: string[] = []
-let cacheData: any = null
-const log = console.log
-const splitFlag = '__ccommand__split'
-const isZh = process.env.PI_Lang === 'zh'
-const cancelCode = 130
-const cancelledText = isZh ? '已取消...' : 'Cancelled...'
-const notfound = isZh
-  ? '当前目录并未找到package.json文件'
-  : 'The current directory and not found package.json file'
-
-const runMsg = isZh ? '正在为您执行...' : 'is running for you...'
-
-async function executeFile(
-  filePath: string,
-  command: string,
-  successText: string,
-  failedText: string,
-) {
-  await pushHistory(`prun ${filePath}`)
-  const { status } = await jsShell(command, {
-    errorExit: false,
-    isLog: false,
-    stdio: 'inherit',
-  })
-
-  log(
-    colorize({
-      color: status === 0 ? 'green' : 'red',
-      text: `\n"prun ${filePath}" ${status === 0 ? successText : failedText} ${
-        status === 0 ? '🎉' : '❌'
-      }`,
-    }),
-  )
-}
-
-async function handleFileExecution(
-  argv0: string,
-  successText: string,
-  failedText: string,
-) {
-  if (argv0.endsWith('.py')) {
-    await executeFile(argv0, `python ${argv0}`, successText, failedText)
-  }
-  else if (argv0.endsWith('.rs')) {
-    const compileStatus = (await jsShell(`rustc ${argv0}`)).status
-    if (compileStatus === 0) {
-      await pushHistory(`prun ${argv0}`)
-      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`, 'inherit')
-      log(
-        colorize({
-          color: 'green',
-          text: `\n"prun ${argv0}" ${successText} 🎉`,
-        }),
-      )
-    }
-    else {
-      log(
-        colorize({
-          color: 'red',
-          text: `\ncommand "prun ${argv0}" ${failedText} ❌`,
-        }),
-      )
-    }
-  }
-}
+const cacheData: any = null
 
 export async function ccommand(userParams?: string) {
   await gumInstall(isZh)
@@ -206,6 +147,8 @@ export async function ccommand(userParams?: string) {
       }
     }
   }
+
+  // 下面是原始代码，保持不变
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
   let scripts
@@ -671,287 +614,4 @@ export async function ccommand(userParams?: string) {
       }),
     )
   }
-}
-
-async function readWorkspaceFile(type: 'pnpm' | 'yarn'): Promise<string> {
-  const filePath
-    = type === 'pnpm'
-      ? path.resolve(process.cwd(), 'pnpm-workspace.yaml')
-      : path.resolve(process.cwd(), 'package.json')
-  try {
-    return await fsp.readFile(filePath, 'utf-8')
-  }
-  catch {
-    return ''
-  }
-}
-
-function parseWorkspacePackages(
-  type: 'pnpm' | 'yarn',
-  workspace: string,
-): string[] {
-  if (type === 'pnpm') {
-    return YAML.parse(workspace)?.packages || []
-  }
-  else {
-    const _workspace = JSON.parse(workspace)?.workspaces
-    if (isPlainObject(_workspace))
-      return _workspace?.packages || []
-
-    return _workspace || []
-  }
-}
-
-async function loadWorkspaceData(
-  type: 'pnpm' | 'yarn',
-): Promise<Record<string, Record<string, string>>> {
-  if (cacheData)
-    return cacheData
-
-  const workspace = await readWorkspaceFile(type)
-  const packages = parseWorkspacePackages(type, workspace)
-
-  cacheData = (await readGlob(packages)) || {}
-  workspaceNames = Object.keys(cacheData).filter(
-    key => cacheData[key] && Object.keys(cacheData[key]).length,
-  )
-
-  return cacheData
-}
-
-async function readGlob(
-  packages: string[],
-): Promise<Record<string, Record<string, string>>> {
-  if (!packages.length)
-    return {}
-
-  const entries = await fg(
-    packages.map(v => `${v}/package.json`),
-    { dot: true, ignore: ['**/node_modules/**'] },
-  )
-
-  const results = await Promise.all(
-    entries.map(async (v) => {
-      const pkg = await getPkg(v)
-      if (!pkg)
-        return null
-      const { name, scripts } = pkg
-      return { name, scripts }
-    }),
-  )
-
-  return results.reduce((result, pkg) => {
-    if (!pkg || !pkg.name || !pkg.scripts)
-      return result
-
-    result[pkg.name] = Object.keys(pkg.scripts).reduce((scripts, key) => {
-      if (!key.startsWith('//'))
-        scripts[key] = pkg.scripts![key]
-
-      return scripts
-    }, {} as Record<string, string>)
-
-    return result
-  }, {} as Record<string, Record<string, string>>)
-}
-
-export async function getData(
-  type: 'pnpm' | 'yarn',
-): Promise<Record<string, Record<string, string>>> {
-  return loadWorkspaceData(type)
-}
-
-function getParams(params: string[]): [string, string, string] {
-  const first = params[0]
-  if (!first)
-    return ['', '', '']
-  if (first.startsWith('--'))
-    return ['', '', params.join(' ')]
-  if (params[1] && params[1].startsWith('--'))
-    return [first, '', params.slice(1).join(' ')]
-
-  return [first, params[1], params.slice(2).join(' ')]
-}
-
-function fuzzyMatch(scripts: Record<string, string>, params: string) {
-  const keys = Object.keys(scripts)
-  const result = keys.find(key => key.startsWith(params))
-  if (result)
-    return result
-  try {
-    const reg = new RegExp(params.split('').join('[_-\\w$.:]*'))
-    return keys.find(key => reg.test(key))
-  }
-  catch (error) {
-    log(
-      colorize({
-        text: `${isZh ? '正则错误' : 'RegExp error'}: ${error}`,
-        color: 'red',
-      }),
-    )
-    process.exit(1)
-  }
-}
-
-function cancel() {
-  log(colorize({ color: 'yellow', text: cancelledText }))
-  return process.exit()
-}
-
-async function pushHistory(command: string) {
-  log(
-    colorize({
-      text: `${isZh ? '快捷指令' : 'shortcut command'}: ${command}`,
-      color: 'blue',
-      bold: true,
-    }),
-  )
-  // if (isWin()) {
-  //   const env = process.env as any
-  //   const historyFile = env.HOMEDRIVE + env.HOMEPATH
-  //   try {
-  //     let _history = await fsp.readFile(historyFile, 'utf8');
-  //     const info = `${_history}${command}\n`
-  //     fsp.writeFile(historyFile, info)
-  //     await jsShell('source ~/.bash_history')
-  //   } catch (error) {
-
-  //   }
-  // } else {
-  const historyFile = `${process.env.HOME}/.zsh_history`
-  try {
-    if (!existsSync(historyFile))
-      return
-    const _history = await fsp.readFile(historyFile, 'utf8')
-    // 构造Date对象,获取当前时间
-    const now = new Date()
-    // 调用getTime()获取UNIX时间戳(ms)
-    const timestamp = now.getTime() / 1000
-    const info = `${_history}: ${timestamp.toFixed(0)}:0;${command}\n`
-    const infoSet: any[] = []
-    // 过滤掉之前重复的指令
-    info.split('\n').forEach((item) => {
-      const command = item.split(';').slice(1).join(';')
-      const targetIndex = infoSet.findIndex(
-        i => i.split(';').slice(1).join(';') === command,
-      )
-      if (targetIndex !== -1)
-        infoSet.splice(targetIndex, 1)
-
-      infoSet.push(item)
-    })
-    const newInfo = infoSet.join('\n')
-
-    // 写回history
-    await fsp.writeFile(historyFile, newInfo)
-  }
-  catch (error) {
-    // console.log(error)
-  }
-  // }
-}
-
-// 添加一个新函数用于检查可执行环境
-async function checkExecutable(command: string): Promise<boolean> {
-  try {
-    await execAsync(`which ${command}`)
-    return true
-  }
-  catch {
-    return false
-  }
-}
-
-// 添加文件路径解析和执行的函数
-async function findAndExecuteFile(
-  filePath: string,
-  successText: string,
-  failedText: string,
-): Promise<boolean> {
-  const fileExtensions = ['.js', '.ts', '.mjs', '.cjs']
-  const ext = path.extname(filePath)
-
-  // 1. 如果文件路径已经有支持的扩展名并且文件存在，直接执行
-  if (ext && fileExtensions.includes(ext) && existsSync(filePath)) {
-    await executeJsFile(filePath, successText, failedText)
-    return true
-  }
-
-  // 2. 如果没有扩展名，尝试添加扩展名
-  if (!ext) {
-    for (const extension of fileExtensions) {
-      const fullPath = `${filePath}${extension}`
-      if (existsSync(fullPath)) {
-        await executeJsFile(fullPath, successText, failedText)
-        return true
-      }
-    }
-  }
-
-  // 3. 检查目录下的索引文件
-  if (existsSync(filePath) && (await fsp.stat(filePath)).isDirectory()) {
-    for (const extension of fileExtensions) {
-      const indexPath = path.join(filePath, `index${extension}`)
-      if (existsSync(indexPath)) {
-        await executeJsFile(indexPath, successText, failedText)
-        return true
-      }
-    }
-  }
-
-  return false
-}
-
-// 执行JavaScript/TypeScript文件
-async function executeJsFile(
-  filePath: string,
-  successText: string,
-  failedText: string,
-): Promise<void> {
-  const ext = path.extname(filePath)
-  let runner = 'node'
-  let command = ''
-
-  if (ext === '.ts') {
-    // 尝试不同的TypeScript执行器
-    if (await checkExecutable('bun')) {
-      runner = 'bun'
-    }
-    else if (await checkExecutable('esno')) {
-      runner = 'esno'
-    }
-    else if (await checkExecutable('tsx')) {
-      runner = 'tsx'
-    }
-    else {
-      log(
-        colorize({
-          text: isZh
-            ? '没有找到可以直接执行TypeScript的工具，推荐安装下列工具之一：\n- npm install -g bun\n- npm install -g esno\n- npm install -g tsx'
-            : 'No TypeScript executor found. Recommend installing one of:\n- npm install -g bun\n- npm install -g esno\n- npm install -g tsx',
-          color: 'yellow',
-        }),
-      )
-      return
-    }
-  }
-
-  command = `${runner} ${filePath}`
-
-  // 记录历史并执行
-  await pushHistory(`prun ${filePath}`)
-  const { status } = await jsShell(command, {
-    errorExit: false,
-    isLog: false,
-    stdio: 'inherit',
-  })
-
-  log(
-    colorize({
-      color: status === 0 ? 'green' : 'red',
-      text: `\n"prun ${filePath}" ${status === 0 ? successText : failedText} ${
-        status === 0 ? '🎉' : '❌'
-      }`,
-    }),
-  )
 }

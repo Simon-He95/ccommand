@@ -3,8 +3,8 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import colorize from '@simon_he/colorize'
+import { memorizeFn } from 'lazy-js-utils'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
-// import terminalLink from 'terminal-link'
 import { version } from '../package.json'
 import {
   cancel,
@@ -24,9 +24,12 @@ import { readMakefile } from './makefile'
 import { fuzzyMatch, getParams } from './utils'
 import { getData, workspaceNames } from './workspace'
 
-const cacheData: any = null
+// Then wrap your getPkg calls
+const memoizedGetPkg = memorizeFn(getPkg)
 
-export async function ccommand(userParams?: string) {
+const cacheData: Record<string, any> = {}
+
+export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
   await gumInstall(isZh)
   const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
@@ -61,27 +64,27 @@ export async function ccommand(userParams?: string) {
         color: 'white',
         text: `
   ${colorize({
-    bold: true,
-    text: 'Common Commands:',
-    bgColor: 'blue',
-  })}
+          bold: true,
+          text: 'Common Commands:',
+          bgColor: 'blue',
+        })}
   ${colorize({
-    text: `- ccommand -v  查看当前版本
+          text: `- ccommand -v  查看当前版本
   - ccommand -help 查看帮助
   - ccommand 执行当前package.json
   - ccommand find 查找当前workspace的所有目录
       `,
-    color: 'cyan',
-  })}
+          color: 'cyan',
+        })}
   If you encounter any problems, you can ${colorize({
-    color: 'magenta',
-    text: issueLink,
-  })}.
+          color: 'magenta',
+          text: issueLink,
+        })}.
   If you like it, please ${colorize({
-    text: starLink,
-    bold: true,
-    color: 'cyan',
-  })} `,
+          text: starLink,
+          bold: true,
+          color: 'cyan',
+        })} `,
       }),
     )
   }
@@ -90,6 +93,7 @@ export async function ccommand(userParams?: string) {
     return
   }
   let termStart!: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'make'
+
   try {
     termStart = await getPkgTool()
   }
@@ -172,10 +176,9 @@ export async function ccommand(userParams?: string) {
         const { result: choose, status } = await jsShell(
           `echo ${workspaceNames.join(
             ',',
-          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
-            isZh
-              ? '请选择一个要执行的目录'
-              : 'Please select a directory to execute'
+          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${isZh
+            ? '请选择一个要执行的目录'
+            : 'Please select a directory to execute'
           }"`,
           ['inherit', 'pipe', 'inherit'],
         )
@@ -197,10 +200,9 @@ export async function ccommand(userParams?: string) {
         const { result: choose, status } = await jsShell(
           `echo ${workspaceNames.join(
             ',',
-          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
-            isZh
-              ? '请选择一个要执行的目录'
-              : 'Please select a directory to execute'
+          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${isZh
+            ? '请选择一个要执行的目录'
+            : 'Please select a directory to execute'
           }"`,
           ['inherit', 'pipe', 'inherit'],
         )
@@ -232,7 +234,7 @@ export async function ccommand(userParams?: string) {
 
     if ((name && cacheData && !cacheData[name]) || !cacheData) {
       try {
-        const pkg = ((await getPkg('./package.json')) || {})?.scripts
+        const pkg = ((await memoizedGetPkg('./package.json')) || {})?.scripts
         if (pkg && pkg[argv[0]]) {
           await runScript(argv[0], argv.slice(1).join(' '))
           return
@@ -255,9 +257,8 @@ export async function ccommand(userParams?: string) {
               // 原有的Python执行代码
               log(
                 colorize({
-                  text: `🤔 ${
-                    isZh ? '找到Python文件' : 'Found Python file'
-                  }: ${pythonFile}`,
+                  text: `🤔 ${isZh ? '找到Python文件' : 'Found Python file'
+                    }: ${pythonFile}`,
                   color: 'yellow',
                 }),
               )
@@ -276,11 +277,10 @@ export async function ccommand(userParams?: string) {
             log(
               colorize({
                 color: 'red',
-                text: `"${argv[0]}" ${
-                  isZh
-                    ? '在工作区、当前目录中找不到任何可执行的脚本或文件，请检查'
-                    : 'is not found in workspace, current directory or current scripts, please check'
-                }`,
+                text: `"${argv[0]}" ${isZh
+                  ? '在工作区、当前目录中找不到任何可执行的脚本或文件，请检查'
+                  : 'is not found in workspace, current directory or current scripts, please check'
+                  }`,
               }),
             )
             process.exit(1)
@@ -294,7 +294,7 @@ export async function ccommand(userParams?: string) {
         }
       }
       // eslint-disable-next-line unused-imports/no-unused-vars
-      catch (error) {}
+      catch (error) { }
     }
   }
 
@@ -428,9 +428,8 @@ export async function ccommand(userParams?: string) {
       command = _all[0]
       prefix = _all.slice(1).join(' ')
     }
-    const result = `${termStart}${withRun ? ' run' : ' '}${dir} ${
-      command || (val ? transformScripts(val) || val : fuzzyWorkspace)
-    } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
+    const result = `${termStart}${withRun ? ' run' : ' '}${dir} ${command || (val ? transformScripts(val) || val : fuzzyWorkspace)
+      } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
     val = `${command || (val ? transformScripts(val) : fuzzyWorkspace)}`
     if (argv[0] === 'find')
       text = `pfind ${dirname} ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
@@ -446,23 +445,36 @@ export async function ccommand(userParams?: string) {
 
   async function getScripts() {
     try {
-      if (!dirname || termStart === 'bun' || termStart === 'npm')
-        return (await getPkg('./package.json'))?.scripts
-      if (termStart === 'pnpm') {
-        return (
-          (await getData(termStart))[dirname]
-          || (await getPkg(`${dirname}/package.json`))?.scripts
-        )
+      // Use the key for caching
+      const cacheKey = dirname || 'root'
+
+      // Check cache first
+      if (cacheData[cacheKey]) {
+        return cacheData[cacheKey]
       }
-      else if (termStart === 'yarn') {
-        return (
-          (await getData(termStart))[dirname]
-          || (await getPkg(`${dirname}/package.json`))?.scripts
-        )
+
+      let scripts
+      if (!dirname || termStart === 'bun' || termStart === 'npm') {
+        scripts = (await memoizedGetPkg('./package.json'))?.scripts
       }
+      else if (termStart === 'pnpm' || termStart === 'yarn') {
+        // Try to get from workspace data first
+        const workspaceData = await getData(termStart)
+        scripts = workspaceData[dirname]
+          || (await memoizedGetPkg(`${dirname}/package.json`))?.scripts
+      }
+
+      // Cache the result
+      if (scripts) {
+        cacheData[cacheKey] = scripts
+      }
+
+      return scripts
     }
     // eslint-disable-next-line unused-imports/no-unused-vars
-    catch (error) {}
+    catch (error) {
+      return null
+    }
   }
 
   function isNeedPrefix(prefix: string) {
@@ -481,12 +493,11 @@ export async function ccommand(userParams?: string) {
           text: `🤔 ${colorize({
             text: `'${argv[0]}'`,
             color: 'cyan',
-          })} ${
-            isZh ? '自动的为您匹配成' : 'automatically match for you to'
-          } ${colorize({
-            text: `'${script}${prefix ? ` ${prefix}` : ''}'`,
-            color: 'cyan',
-          })} `,
+          })} ${isZh ? '自动的为您匹配成' : 'automatically match for you to'
+            } ${colorize({
+              text: `'${script}${prefix ? ` ${prefix}` : ''}'`,
+              color: 'cyan',
+            })} `,
           color: 'yellow',
         }),
       )
@@ -516,7 +527,7 @@ export async function ccommand(userParams?: string) {
       }
       case 'pnpm': {
         const { status: _status, result: _result = '' } = await jsShell(
-          `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
+          `pnpm ${script}${prefix ? ` ${prefix}` : ''}`,
           {
             errorExit: false,
             isLog: false,
@@ -602,9 +613,8 @@ export async function ccommand(userParams?: string) {
       return log(
         colorize({
           color: 'green',
-          text: `\nprun '${script}${
-            prefix ? ` ${prefix}` : ''
-          }' ${successText} 🎉`,
+          text: `\nprun '${script}${prefix ? ` ${prefix}` : ''
+            }' ${successText} 🎉`,
         }),
       )
     }

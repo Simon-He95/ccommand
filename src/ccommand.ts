@@ -232,70 +232,68 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
   else {
     scripts = await getScripts()
 
-    if ((name && cacheData && !cacheData[name]) || !cacheData) {
-      try {
-        const pkg = ((await memoizedGetPkg('./package.json')) || {})?.scripts
-        if (pkg && pkg[argv[0]]) {
-          await runScript(argv[0], argv.slice(1).join(' '))
-          return
-        }
-        else if (pkg && name) {
-          const script = fuzzyMatch(pkg, argv[0])!
-          if (!script) {
-            // 首先尝试查找并执行文件
-            const foundAndExecuted = await findAndExecuteFile(
-              argv[0],
-              successText,
-              failedText,
-            )
-            if (foundAndExecuted)
-              return
+    try {
+      const pkg = ((await memoizedGetPkg('./package.json')) || {})?.scripts
+      if (pkg && pkg[argv[0]]) {
+        await runScript(argv[0], argv.slice(1).join(' '))
+        return
+      }
+      else if (pkg && name) {
+        const script = fuzzyMatch(pkg, argv[0])!
+        if (!script) {
+          // 首先尝试查找并执行文件
+          const foundAndExecuted = await findAndExecuteFile(
+            argv[0],
+            successText,
+            failedText,
+          )
+          if (foundAndExecuted)
+            return
 
-            // 然后尝试Python文件 (保留原有逻辑)
-            const pythonFile = `${name}.py`
-            if (existsSync(pythonFile)) {
-              // 原有的Python执行代码
-              log(
-                colorize({
-                  text: `🤔 ${isZh ? '找到Python文件' : 'Found Python file'
-                    }: ${pythonFile}`,
-                  color: 'yellow',
-                }),
-              )
-              // 剩余的Python执行代码...
-              return
-            }
-
-            // 然后尝试Rust文件 (保留原有逻辑)
-            const rustFile = `${name}.rs`
-            if (existsSync(rustFile)) {
-              // 原有的Rust执行代码...
-              return
-            }
-
-            // 如果所有方法都失败，显示错误信息
+          // 然后尝试Python文件 (保留原有逻辑)
+          const pythonFile = `${name}.py`
+          if (existsSync(pythonFile)) {
+            // 原有的Python执行代码
             log(
               colorize({
-                color: 'red',
-                text: `"${argv[0]}" ${isZh
-                  ? '在工作区、当前目录中找不到任何可执行的脚本或文件，请检查'
-                  : 'is not found in workspace, current directory or current scripts, please check'
-                  }`,
+                text: `🤔 ${isZh ? '找到Python文件' : 'Found Python file'
+                  }: ${pythonFile}`,
+                color: 'yellow',
               }),
             )
-            process.exit(1)
-          }
-          else {
-            // 原有的执行脚本逻辑
-            const prefix = argv.slice(1).join(' ')
-            await runScript(script, prefix)
+            // 剩余的Python执行代码...
             return
           }
+
+          // 然后尝试Rust文件 (保留原有逻辑)
+          const rustFile = `${name}.rs`
+          if (existsSync(rustFile)) {
+            // 原有的Rust执行代码...
+            return
+          }
+
+          // 如果所有方法都失败，显示错误信息
+          log(
+            colorize({
+              color: 'red',
+              text: `"${argv[0]}" ${isZh
+                ? '在工作区、当前目录中找不到任何可执行的脚本或文件，请检查'
+                : 'is not found in workspace, current directory or current scripts, please check'
+                }`,
+            }),
+          )
+          process.exit(1)
+        }
+        else {
+          // 原有的执行脚本逻辑
+          const prefix = argv.slice(1).join(' ')
+          await runScript(script, prefix)
+          return
         }
       }
-      // eslint-disable-next-line unused-imports/no-unused-vars
-      catch (error) { }
     }
+    // eslint-disable-next-line unused-imports/no-unused-vars
+    catch (error) { }
   }
 
   if (!scripts) {

@@ -31,6 +31,7 @@ const cacheData: Record<string, any> = {}
 
 export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
   await gumInstall(isZh)
+  debugger
   const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
@@ -525,7 +526,7 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
       }
       case 'pnpm': {
         const { status: _status, result: _result = '' } = await jsShell(
-          `pnpm ${script}${prefix ? ` ${prefix}` : ''}`,
+          `pnpm ${script}${prefix ? ` -- ${prefix}` : ''}`,
           {
             errorExit: false,
             isLog: false,

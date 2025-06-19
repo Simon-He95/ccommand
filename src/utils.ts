@@ -5,9 +5,9 @@ import { cancelledText, isZh, log } from './constants'
 export function getParams(params: string[]): [string, string, string] {
   const first = params[0]
   if (!first)
-    return ['', '', '']
+return ['', '', '']
   if (first.startsWith('--'))
-    return ['', '', params.join(' ')]
+return ['', '', params.join(' ')]
   if (params[1] && params[1].startsWith('--'))
     return [first, '', params.slice(1).join(' ')]
 
@@ -18,12 +18,12 @@ export function fuzzyMatch(scripts: Record<string, string>, params: string) {
   const keys = Object.keys(scripts)
   const result = keys.find(key => key.startsWith(params))
   if (result)
-    return result
+return result
   try {
     const reg = new RegExp(params.split('').join('[_-\\w$.:]*'))
     return keys.find(key => reg.test(key))
   }
-  catch (error) {
+ catch (error) {
     log(
       colorize({
         text: `${isZh ? '正则错误' : 'RegExp error'}: ${error}`,

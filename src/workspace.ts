@@ -25,7 +25,7 @@ export async function readWorkspaceFile(
   try {
     return await fsp.readFile(filePath, 'utf-8')
   }
-  catch {
+ catch {
     return ''
   }
 }
@@ -38,10 +38,10 @@ export function parseWorkspacePackages(
   if (type === 'pnpm') {
     return YAML.parse(workspace)?.packages || []
   }
-  else {
+ else {
     const _workspace = JSON.parse(workspace)?.workspaces
     if (isPlainObject(_workspace))
-      return _workspace?.packages || []
+return _workspace?.packages || []
 
     return _workspace || []
   }
@@ -52,7 +52,7 @@ export async function readGlob(
   packages: string[],
 ): Promise<Record<string, Record<string, string>>> {
   if (!packages.length)
-    return {}
+return {}
 
   const entries = await fg(
     packages.map(v => `${v}/package.json`),
@@ -63,7 +63,7 @@ export async function readGlob(
     entries.map(async (v) => {
       const pkg = await getPkg(v)
       if (!pkg)
-        return null
+return null
       const { name, scripts } = pkg
       return { name, scripts }
     }),
@@ -71,11 +71,11 @@ export async function readGlob(
 
   return results.reduce((result, pkg) => {
     if (!pkg || !pkg.name || !pkg.scripts)
-      return result
+return result
 
     result[pkg.name] = Object.keys(pkg.scripts).reduce((scripts, key) => {
       if (!key.startsWith('//'))
-        scripts[key] = pkg.scripts![key]
+scripts[key] = pkg.scripts![key]
 
       return scripts
     }, {} as Record<string, string>)
@@ -89,7 +89,7 @@ export async function loadWorkspaceData(
   type: 'pnpm' | 'yarn',
 ): Promise<Record<string, Record<string, string>>> {
   if (cacheData)
-    return cacheData
+return cacheData
 
   const workspace = await readWorkspaceFile(type)
   const packages = parseWorkspacePackages(type, workspace)

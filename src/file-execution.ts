@@ -16,14 +16,14 @@ const executableCache: Record<string, boolean> = {}
 export async function checkExecutable(command: string): Promise<boolean> {
   // 如果已经缓存了结果，直接返回
   if (executableCache[command] !== undefined)
-    return executableCache[command]
+return executableCache[command]
 
   try {
     await execAsync(`which ${command}`)
     executableCache[command] = true
     return true
   }
-  catch {
+ catch {
     executableCache[command] = false
     return false
   }
@@ -35,14 +35,14 @@ let tsRunner: string | null = null
 // 初始化TypeScript运行器（供外部调用，可以在程序启动时执行一次）
 export async function initTsRunner(): Promise<string | null> {
   if (tsRunner !== null)
-    return tsRunner
+return tsRunner
 
   if (await checkExecutable('bun'))
-    tsRunner = 'bun'
+tsRunner = 'bun'
   else if (await checkExecutable('esno'))
-    tsRunner = 'esno'
+tsRunner = 'esno'
   else if (await checkExecutable('tsx'))
-    tsRunner = 'tsx'
+tsRunner = 'tsx'
   else tsRunner = null
 
   return tsRunner
@@ -82,12 +82,12 @@ export async function executeJsFile(
   if (ext === '.ts') {
     // 如果TSRunner尚未初始化，则初始化它
     if (tsRunner === null)
-      await initTsRunner()
+await initTsRunner()
 
     if (tsRunner) {
       runner = tsRunner
     }
-    else {
+ else {
       log(
         colorize({
           text: isZh
@@ -151,7 +151,7 @@ export async function handleFileExecution(
   if (argv0.endsWith('.py')) {
     await executeFile(argv0, `python ${argv0}`, successText, failedText)
   }
-  else if (argv0.endsWith('.rs')) {
+ else if (argv0.endsWith('.rs')) {
     const compileStatus = (await jsShell(`rustc ${argv0}`)).status
     if (compileStatus === 0) {
       await pushHistory(`prun ${argv0}`)
@@ -163,7 +163,7 @@ export async function handleFileExecution(
         }),
       )
     }
-    else {
+ else {
       log(
         colorize({
           color: 'red',

@@ -12,12 +12,12 @@ export function readMakefile(
           let name
           // eslint-disable-next-line no-cond-assign
           if (!match || !(name = match[1]))
-            continue
+continue
           // 根据名字匹配脚本信息
           const commandReg = new RegExp(`^${name}:[\n\\s]*([^\n\\\\;]+)`, 'ms')
           const detailMatcher = res.match(commandReg)
           if (!detailMatcher)
-            continue
+continue
           const detail = `${detailMatcher[1].trim()}...`
           commandNames.push({ name, detail })
         }

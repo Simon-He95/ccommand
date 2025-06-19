@@ -1,6 +1,5 @@
 import colorize from '@simon_he/colorize'
 import { jsShell } from 'lazy-js-utils/node'
-// import terminalLink from 'terminal-link'
 
 const log = console.log
 export async function gumInstall(isZh: boolean) {

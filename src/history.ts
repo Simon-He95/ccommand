@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs'
 import fsp from 'node:fs/promises'
 import process from 'node:process'
 import colorize from '@simon_he/colorize'
-import { jsShell } from 'lazy-js-utils/node'
 import { isZh, log } from './constants'
 
 export async function pushHistory(command: string) {
@@ -92,9 +91,9 @@ export async function pushHistory(command: string) {
       }\n`
     }
  else {
-      info = `${
+      info = `${`${
         _history + (_history && !_history.endsWith('\n') ? '\n' : '') + newEntry
-      }\n`
+      }\n${newEntry}`}\n`
     }
 
     const infoSet: any[] = []
@@ -155,19 +154,7 @@ infoSet.splice(targetIndex, 1)
     const newInfo = infoSet.join('\n')
 
     // 写回history
-    await fsp.writeFile(historyFile, newInfo)
-    // 根据不同shell环境执行对应的更新命令
-    switch (shellName) {
-      case 'zsh':
-        await jsShell('zsh', 'inherit')
-        break
-      case 'bash':
-        await jsShell('bash', 'inherit')
-        break
-      case 'fish':
-        await jsShell('fish', 'inherit')
-        break
-    }
+    fsp.writeFile(historyFile, newInfo)
   }
  catch {
     log(

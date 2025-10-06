@@ -55,7 +55,7 @@
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.19.0",
+    "@antfu/eslint-config": "^5.0.0",
     "@types/node": "^17.0.45",
     "bumpp": "^8.2.1",
     "eslint": "^9.37.0",

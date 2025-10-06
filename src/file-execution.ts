@@ -1,12 +1,11 @@
 import { exec } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import colorize from '@simon_he/colorize'
 import { jsShell } from 'lazy-js-utils/node'
-import { isZh, log } from './constants'
-import { pushHistory } from './history'
+import { isZh, log } from './constants.js'
+import { pushHistory } from './history.js'
 
 const execAsync = promisify(exec)
 
@@ -19,7 +18,8 @@ export async function checkExecutable(command: string): Promise<boolean> {
 return executableCache[command]
 
   try {
-    await execAsync(`which ${command}`)
+    // `command -v` is POSIX and generally more reliable than `which`
+    await execAsync(`command -v ${command}`)
     executableCache[command] = true
     return true
   }
@@ -113,16 +113,26 @@ export async function findAndExecuteFile(
   const ext = path.extname(filePath)
 
   // 1. 如果文件路径已经有支持的扩展名并且文件存在，直接执行
-  if (ext && fileExtensions.includes(ext) && existsSync(filePath)) {
-    await executeJsFile(filePath, successText, failedText)
-    return true
+  if (ext && fileExtensions.includes(ext)) {
+    const exists = await fsp
+      .stat(filePath)
+      .then(s => s.isFile())
+      .catch(() => false)
+    if (exists) {
+      await executeJsFile(filePath, successText, failedText)
+      return true
+    }
   }
 
   // 2. 如果没有扩展名，尝试添加扩展名
   if (!ext) {
     for (const extension of fileExtensions) {
       const fullPath = `${filePath}${extension}`
-      if (existsSync(fullPath)) {
+      const exists = await fsp
+        .stat(fullPath)
+        .then(s => s.isFile())
+        .catch(() => false)
+      if (exists) {
         await executeJsFile(fullPath, successText, failedText)
         return true
       }
@@ -130,10 +140,16 @@ export async function findAndExecuteFile(
   }
 
   // 3. 检查目录下的索引文件
-  if (existsSync(filePath) && (await fsp.stat(filePath)).isDirectory()) {
+  // Use safe stat (stat can throw if file disappears between checks)
+  const st = await fsp.stat(filePath).catch(() => null)
+  if (st && st.isDirectory()) {
     for (const extension of fileExtensions) {
       const indexPath = path.join(filePath, `index${extension}`)
-      if (existsSync(indexPath)) {
+      const exists = await fsp
+        .stat(indexPath)
+        .then(s => s.isFile())
+        .catch(() => false)
+      if (exists) {
         await executeJsFile(indexPath, successText, failedText)
         return true
       }
@@ -152,16 +168,28 @@ export async function handleFileExecution(
     await executeFile(argv0, `python ${argv0}`, successText, failedText)
   }
  else if (argv0.endsWith('.rs')) {
-    const compileStatus = (await jsShell(`rustc ${argv0}`)).status
-    if (compileStatus === 0) {
-      await pushHistory(`prun ${argv0}`)
-      await jsShell(`./${argv0.slice(0, argv0.length - 3)}`, 'inherit')
-      log(
-        colorize({
-          color: 'green',
-          text: `\n"prun ${argv0}" ${successText} 🎉`,
-        }),
-      )
+    const compile = await jsShell(`rustc ${argv0}`)
+    if (compile.status === 0) {
+      // Run the produced executable (use basename to derive executable name)
+      const exeName = `./${path.basename(argv0, '.rs')}`
+      const run = await jsShell(exeName, { stdio: 'inherit' })
+      if (run.status === 0) {
+        await pushHistory(`prun ${argv0}`)
+        log(
+          colorize({
+            color: 'green',
+            text: `\n"prun ${argv0}" ${successText} 🎉`,
+          }),
+        )
+      }
+ else {
+        log(
+          colorize({
+            color: 'red',
+            text: `\ncommand "prun ${argv0}" ${failedText} ❌`,
+          }),
+        )
+      }
     }
  else {
       log(

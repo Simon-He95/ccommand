@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
@@ -6,6 +5,10 @@ import colorize from '@simon_he/colorize'
 import { memorizeFn } from 'lazy-js-utils'
 import { getPkg, getPkgTool, jsShell } from 'lazy-js-utils/node'
 import { version } from '../package.json'
+import { getCommand as exportedGetCommand } from './commands/getCommand.js'
+
+import { getScripts as exportedGetScripts } from './commands/getScripts.js'
+import { runScript as exportedRunScript } from './commands/runScript.js'
 import {
   cancel,
   cancelCode,
@@ -14,20 +17,31 @@ import {
   notfound,
   runMsg,
   splitFlag,
-} from './constants'
-
+} from './constants.js'
 // 导入新模块
-import { findAndExecuteFile, handleFileExecution } from './file-execution'
-import { gumInstall } from './gumInstall'
-import { pushHistory } from './history'
-import { readMakefile } from './makefile'
-import { fuzzyMatch, getParams } from './utils'
-import { getData, workspaceNames } from './workspace'
+import { findAndExecuteFile, handleFileExecution } from './file-execution.js'
+import { gumInstall } from './gumInstall.js'
+import { pushHistory } from './history.js'
+import { readMakefile } from './makefile.js'
+import { fuzzyMatch, getParams } from './utils.js'
+import { getData, getWorkspaceNames } from './workspace.js'
 
 // Then wrap your getPkg calls
 const memoizedGetPkg = memorizeFn(getPkg)
 
-const cacheData: Record<string, any> = {}
+// cacheData moved to individual command modules
+
+export const getScripts = exportedGetScripts
+
+export const getCommand = exportedGetCommand
+export const runScript = exportedRunScript
+
+function needPrefixCheck(argv0: string, prefix: string, argv: string[]) {
+  if (argv0 === 'find') {
+    return Boolean(argv[1] && prefix)
+  }
+  return Boolean(argv[1] && prefix)
+}
 
 export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
   await gumInstall(isZh)
@@ -37,7 +51,7 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
   const successText = isZh ? '运行成功' : 'run successfully'
   const failedText = isZh ? '运行失败' : 'run error'
   const argv = userParams
-    ? userParams.replace(/\s+/, ' ').split(' ')
+    ? userParams.replace(/\s+/g, ' ').trim().split(' ')
     : process.argv.slice(2)
   if (argv[0] === '-v' || argv[0] === '--version') {
     return log(
@@ -114,7 +128,15 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
         }, {} as Record<string, string>)
         let script = ''
         if (userParams) {
-          script = fuzzyMatch(fuzzyOptions, userParams)!
+          script = fuzzyMatch(fuzzyOptions, userParams) || ''
+          if (!script) {
+            return log(
+              colorize({
+                color: 'red',
+                text: notfound,
+              }),
+            )
+          }
         }
  else {
           const { result, status } = await jsShell(
@@ -129,7 +151,18 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
 return cancel()
           script = result
         }
-        await runScript(script.trim()!, '')
+        await runScript(
+          termStart,
+          script.trim()!,
+          '',
+          argv,
+          pushHistory,
+          jsShell,
+          colorize,
+          isZh,
+          successText,
+          failedText,
+        )
 
         return
       }
@@ -157,22 +190,22 @@ return cancel()
   // 下面是原始代码，保持不变
   const [name, fuzzyWorkspace, params] = getParams(argv)
   let dirname = name
-  let scripts
+  let scripts: Record<string, string> | undefined
   if (argv[0] === 'find') {
     if (fuzzyWorkspace) {
       await getData(termStart as any)
-      dirname = workspaceNames.filter(name =>
+      dirname = getWorkspaceNames().filter(name =>
         name.includes(fuzzyWorkspace),
       )[0]
     }
  else {
       if (termStart === 'yarn') {
         await getData(termStart)
-        if (!workspaceNames.length)
+        if (!getWorkspaceNames().length)
           return log(colorize({ color: 'yellow', text: noWorkspaceText }))
 
         const { result: choose, status } = await jsShell(
-          `echo ${workspaceNames.join(
+          `echo ${getWorkspaceNames().join(
             ',',
           )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
             isZh
@@ -187,7 +220,7 @@ return cancel()
       }
  else if (termStart === 'pnpm') {
         await getData(termStart)
-        if (!workspaceNames.length) {
+        if (!getWorkspaceNames().length) {
           return log(
             colorize({
               color: 'yellow',
@@ -197,7 +230,7 @@ return cancel()
         }
 
         const { result: choose, status } = await jsShell(
-          `echo ${workspaceNames.join(
+          `echo ${getWorkspaceNames().join(
             ',',
           )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
             isZh
@@ -227,15 +260,26 @@ return cancel()
       }
     }
 
-    scripts = await getScripts()
+    scripts = (await getScripts(dirname, termStart)) || undefined
   }
  else {
-    scripts = await getScripts()
+    scripts = (await getScripts(dirname, termStart)) || undefined
 
     try {
       const pkg = ((await memoizedGetPkg('./package.json')) || {})?.scripts
       if (pkg && pkg[argv[0]]) {
-        await runScript(argv[0], argv.slice(1).join(' '))
+        await runScript(
+          termStart,
+          argv[0],
+          argv.slice(1).join(' '),
+          argv,
+          pushHistory,
+          jsShell,
+          colorize,
+          isZh,
+          successText,
+          failedText,
+        )
         return
       }
  else if (pkg && name) {
@@ -252,7 +296,11 @@ return
 
           // 然后尝试Python文件 (保留原有逻辑)
           const pythonFile = `${name}.py`
-          if (existsSync(pythonFile)) {
+          const pythonExists = await fsp
+            .stat(pythonFile)
+            .then(s => s.isFile())
+            .catch(() => false)
+          if (pythonExists) {
             // 原有的Python执行代码
             log(
               colorize({
@@ -268,7 +316,11 @@ return
 
           // 然后尝试Rust文件 (保留原有逻辑)
           const rustFile = `${name}.rs`
-          if (existsSync(rustFile)) {
+          const rustExists = await fsp
+            .stat(rustFile)
+            .then(s => s.isFile())
+            .catch(() => false)
+          if (rustExists) {
             // 原有的Rust执行代码...
             return
           }
@@ -289,7 +341,18 @@ return
  else {
           // 原有的执行脚本逻辑
           const prefix = argv.slice(1).join(' ')
-          await runScript(script, prefix)
+          await runScript(
+            termStart,
+            script,
+            prefix,
+            argv,
+            pushHistory,
+            jsShell,
+            colorize,
+            isZh,
+            successText,
+            failedText,
+          )
           return
         }
       }
@@ -313,7 +376,7 @@ return
     || (argv[0] === 'find' && (!argv[2] || argv[2].startsWith('--')))
   ) {
     const options = Object.keys(scripts).reduce((result, key) => {
-      const value = scripts[key]
+      const value = scripts?.[key] ?? ''
       keys.push(key)
       result += `"${key}: ${value
         .replace(/\\/g, '\\\\')
@@ -342,8 +405,27 @@ return cancel()
     }),
   )
 
-  const [command, text] = await getCommand()
-  const _command = command.replace(/\s+/g, ' ')
+  // Compute the command and highlighted text using the exported helper
+  const {
+    command: computedCommand,
+    text: computedText,
+    val: computedVal,
+  } = await getCommand({
+    termStart,
+    params,
+    dirname,
+    argv,
+    val,
+    runMsg,
+    isZh,
+    pushHistory,
+    jsShell,
+    // provide a scope-aware isNeedPrefix that uses the current argv
+    isNeedPrefix: (p: string) => needPrefixCheck(argv[0], p, argv),
+    fuzzyWorkspace,
+  })
+  const _command = computedCommand.replace(/\s+/g, ' ')
+  val = computedVal
   const { status, result = '' } = await jsShell(_command, {
     errorExit: false,
     stdio: 'inherit',
@@ -359,7 +441,7 @@ return cancel()
     return log(
       colorize({
         color: 'green',
-        text: `\n${text} 🎉`,
+        text: `\n${computedText} 🎉`,
       }),
     )
   }
@@ -382,7 +464,7 @@ return cancel()
       return log(
         colorize({
           color: 'green',
-          text: `\n${text} 🎉`,
+          text: `\n${computedText} 🎉`,
         }),
       )
     }
@@ -394,242 +476,7 @@ return cancel()
       text: `\ncommand '${val}' ${failedText} ❌`,
     }),
   )
+  // Note: getScripts and transformScripts are provided by the commands module now.
 
-  function transformScripts(str: string) {
-    return (
-      keys.find(key => key === str) ?? keys.find(key => str.startsWith(key))
-    )
-  }
-  async function getCommand(): Promise<[string, string]> {
-    let dir = ''
-    let prefix = ''
-    const withRun = termStart !== 'yarn'
-    if (termStart === 'npm') {
-      prefix = params ? ` -- ${params}` : ''
-      dir = dirname ? ` --prefix ${dirname} ` : ' '
-    }
- else if (termStart === 'pnpm') {
-      prefix = params ? ` ${params}` : ''
-      dir = dirname ? ` --filter ${dirname} ` : ' '
-    }
- else if (termStart === 'yarn') {
-      prefix = params ? ` ${params}` : ''
-      dir = dirname ? ` workspace ${dirname} ` : ' '
-    }
- else if (termStart === 'bun') {
-      prefix = params ? ` ${params}` : ''
-      dir = ''
-    }
-    let command = ''
-    let text = ''
-    if (prefix && !prefix.startsWith(' --')) {
-      const _all = prefix.split(' ').filter(Boolean)
-      command = _all[0]
-      prefix = _all.slice(1).join(' ')
-    }
-    const result = `${termStart}${withRun ? ' run' : ' '}${dir} ${
-      command || (val ? transformScripts(val) || val : fuzzyWorkspace)
-    } ${isNeedPrefix(prefix) ? `-- ${prefix}` : prefix}`
-    val = `${command || (val ? transformScripts(val) : fuzzyWorkspace)}`
-    if (argv[0] === 'find')
-      text = `pfind ${dirname} ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
-    else text = `prun ${val} ${prefix}`.replace(/\s+/g, ' ').trim()
-
-    await pushHistory(text)
-    const texts = text.split(' ')
-    const last = texts.slice(-1)[0]
-    texts[texts.length - 1] = `'${last}'`
-    const highlighText = texts.join(' ')
-    return [result, highlighText]
-  }
-
-  async function getScripts() {
-    try {
-      // Use the key for caching
-      const cacheKey = dirname || 'root'
-
-      // Check cache first
-      if (cacheData[cacheKey]) {
-        return cacheData[cacheKey]
-      }
-
-      let scripts
-      if (!dirname || termStart === 'bun' || termStart === 'npm') {
-        scripts = (await memoizedGetPkg('./package.json'))?.scripts
-      }
- else if (termStart === 'pnpm' || termStart === 'yarn') {
-        // Try to get from workspace data first
-        const workspaceData = await getData(termStart)
-        scripts
-          = workspaceData[dirname]
-            || (await memoizedGetPkg(`${dirname}/package.json`))?.scripts
-      }
-
-      // Cache the result
-      if (scripts) {
-        cacheData[cacheKey] = scripts
-      }
-
-      return scripts
-    }
- catch {
-      return null
-    }
-  }
-
-  function isNeedPrefix(prefix: string) {
-    if (argv[0] === 'find')
-return argv[1] && prefix
-    else return argv[1] && prefix
-  }
-
-  async function runScript(script: string, prefix: string) {
-    let status
-    let result = ''
-    const arg = argv[0]?.trim()
-    if (script && arg && arg !== script) {
-      log(
-        colorize({
-          text: `🤔 ${colorize({
-            text: `'${argv[0]}'`,
-            color: 'cyan',
-          })} ${
-            isZh ? '自动的为您匹配成' : 'automatically match for you to'
-          } ${colorize({
-            text: `'${script}${prefix ? ` ${prefix}` : ''}'`,
-            color: 'cyan',
-          })} `,
-          color: 'yellow',
-        }),
-      )
-    }
- else if (script) {
-      log(
-        colorize({
-          text: `🤔 ${runMsg} ${script}`,
-          color: 'magenta',
-        }),
-      )
-    }
-
-    switch (termStart) {
-      case 'npm': {
-        const { status: _status, result: _result } = await jsShell(
-          `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
-          {
-            errorExit: false,
-            isLog: false,
-            stdio: 'inherit',
-          },
-        )
-        status = _status
-        result = _result
-        break
-      }
-      case 'pnpm': {
-        const { status: _status, result: _result = '' } = await jsShell(
-          `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-          {
-            errorExit: false,
-            isLog: false,
-            stdio: 'inherit',
-          },
-        )
-
-        // const { status: _status, result: _result = '' } = await useNodeWorker({
-        //   stdio: 'pipe',
-        //   params: `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
-        // })
-
-        result = _result
-        status = _status
-        if (
-          result.includes(
-            'pnpm versions with respective Node.js version support',
-          )
-        ) {
-          log(
-            colorize({
-              text: isZh
-                ? '正在尝试使用 npm 再次执行...'
-                : 'Trying to use npm to run again...',
-              color: 'yellow',
-            }),
-          )
-          const { status: _status, result: _result } = await jsShell(
-            `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
-            {
-              errorExit: false,
-              isLog: false,
-              stdio: 'inherit',
-            },
-          )
-          status = _status
-          result = _result
-        }
-        break
-      }
-      case 'yarn': {
-        const { status: _status, result: _result } = await jsShell(
-          `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
-          {
-            errorExit: false,
-            isLog: false,
-            stdio: 'inherit',
-          },
-        )
-        status = _status
-        result = _result
-        break
-      }
-      case 'bun': {
-        const { status: _status, result: _result } = await jsShell(
-          `bun run ${script} ${prefix}`,
-          {
-            errorExit: false,
-            isLog: false,
-            stdio: 'inherit',
-          },
-        )
-        status = _status
-        result = _result
-        break
-      }
-      case 'make': {
-        const { status: _status, result: _result } = await jsShell(
-          `make ${script} ${prefix}`,
-          {
-            errorExit: false,
-            isLog: false,
-            stdio: 'inherit',
-          },
-        )
-        status = _status
-        result = _result
-        break
-      }
-    }
-    if (status === 0) {
-      await pushHistory(`prun ${script}${prefix ? ` ${prefix}` : ''}`)
-      return log(
-        colorize({
-          color: 'green',
-          text: `\nprun '${script}${
-            prefix ? ` ${prefix}` : ''
-          }' ${successText} 🎉`,
-        }),
-      )
-    }
-
-    return log(
-      colorize({
-        color: 'red',
-        text: `\ncommand ${colorize({
-          bold: true,
-          color: 'cyan',
-          text: `'${script || argv[0]}${prefix ? ` ${prefix}` : ''}'`,
-        })} ${failedText} ❌`,
-      }),
-    )
-  }
+  // inner helpers replaced by top-level implementations
 }

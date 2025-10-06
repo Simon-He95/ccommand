@@ -1,1 +1,1 @@
-export { ccommand } from './ccommand'
+export { ccommand } from './ccommand.js'

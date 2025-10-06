@@ -5,16 +5,17 @@ import fg from 'fast-glob'
 import { isPlainObject } from 'lazy-js-utils'
 import { getPkg } from 'lazy-js-utils/node'
 
-// eslint-disable-next-line ts/no-require-imports
-const YAML = require('yamljs')
+// YAML parser (yamljs is CJS); load dynamically when needed
+let YAML: any = null
 
-// eslint-disable-next-line import/no-mutable-exports
-let workspaceNames: string[] = []
-let cacheData: any = null
+let workspaceNamesInternal: string[] = []
+let cacheData: Record<string, Record<string, string>> | null = null
+let lastWorkspaceMtime: number | null = null
 
-export { workspaceNames }
+export function getWorkspaceNames() {
+  return workspaceNamesInternal
+}
 
-// 读取工作区文件
 export async function readWorkspaceFile(
   type: 'pnpm' | 'yarn',
 ): Promise<string> {
@@ -23,6 +24,14 @@ export async function readWorkspaceFile(
       ? path.resolve(process.cwd(), 'pnpm-workspace.yaml')
       : path.resolve(process.cwd(), 'package.json')
   try {
+    try {
+      const st = await fsp.stat(filePath)
+      lastWorkspaceMtime = st.mtimeMs
+    }
+ catch {
+      // ignore stat errors
+    }
+
     return await fsp.readFile(filePath, 'utf-8')
   }
  catch {
@@ -30,24 +39,46 @@ export async function readWorkspaceFile(
   }
 }
 
-// 解析工作区包
-export function parseWorkspacePackages(
+export async function parseWorkspacePackages(
   type: 'pnpm' | 'yarn',
   workspace: string,
-): string[] {
+): Promise<string[]> {
+  if (!workspace)
+return []
+
   if (type === 'pnpm') {
-    return YAML.parse(workspace)?.packages || []
+    try {
+      if (!YAML) {
+        // dynamic import of yamljs (CJS); import() returns a module namespace
+        // @ts-expect-error - yamljs has no types
+        const mod = await import('yamljs')
+        YAML = (mod && (mod as any).default) || mod
+      }
+      const parsed = YAML.parse(workspace)
+      const pkgs = parsed?.packages
+      if (Array.isArray(pkgs))
+return pkgs.filter(Boolean)
+      return []
+    }
+ catch {
+      return []
+    }
   }
- else {
-    const _workspace = JSON.parse(workspace)?.workspaces
+
+  try {
+    const parsed = JSON.parse(workspace)
+    const _workspace = parsed?.workspaces
     if (isPlainObject(_workspace))
 return _workspace?.packages || []
-
-    return _workspace || []
+    if (Array.isArray(_workspace))
+return _workspace
+    return []
+  }
+ catch {
+    return []
   }
 }
 
-// 读取glob匹配的包
 export async function readGlob(
   packages: string[],
 ): Promise<Record<string, Record<string, string>>> {
@@ -56,16 +87,24 @@ return {}
 
   const entries = await fg(
     packages.map(v => `${v}/package.json`),
-    { dot: true, ignore: ['**/node_modules/**'] },
+    {
+      dot: true,
+      ignore: ['**/node_modules/**'],
+    },
   )
 
   const results = await Promise.all(
     entries.map(async (v) => {
-      const pkg = await getPkg(v)
-      if (!pkg)
+      try {
+        const pkg = await getPkg(v)
+        if (!pkg)
 return null
-      const { name, scripts } = pkg
-      return { name, scripts }
+        const { name, scripts } = pkg
+        return { name, scripts }
+      }
+ catch {
+        return null
+      }
     }),
   )
 
@@ -76,7 +115,6 @@ return result
     result[pkg.name] = Object.keys(pkg.scripts).reduce((scripts, key) => {
       if (!key.startsWith('//'))
 scripts[key] = pkg.scripts![key]
-
       return scripts
     }, {} as Record<string, string>)
 
@@ -84,25 +122,42 @@ scripts[key] = pkg.scripts![key]
   }, {} as Record<string, Record<string, string>>)
 }
 
-// 加载工作区数据
 export async function loadWorkspaceData(
   type: 'pnpm' | 'yarn',
 ): Promise<Record<string, Record<string, string>>> {
-  if (cacheData)
-return cacheData
+  if (cacheData) {
+    try {
+      const filePath
+        = type === 'pnpm'
+          ? path.resolve(process.cwd(), 'pnpm-workspace.yaml')
+          : path.resolve(process.cwd(), 'package.json')
+      const st = await fsp.stat(filePath)
+      if (lastWorkspaceMtime && st.mtimeMs <= lastWorkspaceMtime) {
+        return cacheData
+      }
+    }
+ catch {
+      return cacheData
+    }
+  }
 
   const workspace = await readWorkspaceFile(type)
-  const packages = parseWorkspacePackages(type, workspace)
+  const packages = await parseWorkspacePackages(type, workspace)
 
   cacheData = (await readGlob(packages)) || {}
-  workspaceNames = Object.keys(cacheData).filter(
-    key => cacheData[key] && Object.keys(cacheData[key]).length,
+  workspaceNamesInternal = Object.keys(cacheData).filter(
+    key => cacheData && cacheData[key] && Object.keys(cacheData[key]).length,
   )
 
   return cacheData
 }
 
-// 获取工作区数据的导出函数
+export function clearWorkspaceCache() {
+  cacheData = null
+  workspaceNamesInternal = []
+  lastWorkspaceMtime = null
+}
+
 export async function getData(
   type: 'pnpm' | 'yarn',
 ): Promise<Record<string, Record<string, string>>> {

@@ -27,10 +27,20 @@ ccommand -help # 查看帮助 view help
 ```
 # 导出环境变量在你的bash或者zsh中 Export environment variables in your bash or zsh
 # 中文 Chinese
-export PI_Lang=zh
+export PI_LANG=zh
 # 英文 English
-export PI_Lang=zh
+export PI_LANG=en
 
+```
+
+## 配置 ｜ Config
+
+```
+# 禁用 gum 自动安装/交互选择 (也支持 NO_GUM)
+export CCOMMAND_NO_GUM=1
+
+# 禁用写入 shell history (也支持 NO_HISTORY)
+export CCOMMAND_NO_HISTORY=1
 ```
 
 ## 新特性 ｜ Feature

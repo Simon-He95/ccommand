@@ -7,7 +7,7 @@ const noopShell = async () => ({ status: 0, result: '' })
 function baseCtx(overrides = {}) {
   return Object.assign(
     {
-      params: 'a b',
+      params: ['a', 'b'],
       dirname: 'pkg',
       argv: ['run'],
       val: 'test',
@@ -15,7 +15,7 @@ function baseCtx(overrides = {}) {
       isZh: false,
       pushHistory: noopPush,
       jsShell: noopShell,
-      isNeedPrefix: (p: string) => !!p,
+      isNeedPrefix: (p: string[]) => p.length > 0,
       fuzzyWorkspace: undefined,
     },
     overrides,
@@ -44,10 +44,11 @@ describe('getCommand variations', () => {
     expect(res.command).toContain('bun run')
   })
 
-  it('make produces make run command', async () => {
+  it('make produces make command without run', async () => {
     const ctx = baseCtx({ termStart: 'make' })
     const res = await getCommand(ctx)
-    expect(res.command).toContain('make run')
+    expect(res.command).toContain('make')
+    expect(res.command).not.toContain('make run')
   })
 
   it('find mode produces pfind text', async () => {

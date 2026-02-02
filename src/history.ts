@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -12,7 +13,25 @@ return _colorize
   return _colorize
 }
 
+interface HistoryCacheEntry {
+  mtimeMs: number
+  size: number
+  entries: string[]
+  format: 'zsh' | 'bash' | 'fish'
+}
+
+const historyCache = new Map<string, HistoryCacheEntry>()
+
+function isHistoryDisabled() {
+  const raw = process.env.CCOMMAND_NO_HISTORY || process.env.NO_HISTORY || ''
+  const flag = raw.toLowerCase()
+  return flag === '1' || flag === 'true' || flag === 'yes'
+}
+
 export async function pushHistory(command: string) {
+  if (isHistoryDisabled())
+return
+
   const colorize = await getColorize()
   log(
     colorize({
@@ -70,7 +89,7 @@ export async function pushHistory(command: string) {
       return
     }
 
-    const raw = await fsp.readFile(historyFile, 'utf8')
+    const stat = await fsp.stat(historyFile).catch(() => null)
     const timestamp = Math.floor(Date.now() / 1000)
 
     // 根据格式生成 newEntry（保持与原实现兼容）
@@ -140,24 +159,38 @@ blocks.push(buffer.join('\n'))
       }
     }
 
-    const entries = parseEntries(raw)
+    let entries: string[] = []
+    const cached = historyCache.get(historyFile)
+    if (
+      cached
+      && stat
+      && cached.mtimeMs === stat.mtimeMs
+      && cached.size === stat.size
+      && cached.format === historyFormat
+    ) {
+      entries = cached.entries.slice()
+    }
+ else {
+      const raw = await fsp.readFile(historyFile, 'utf8')
+      entries = parseEntries(raw)
+    }
 
     // 提取条目对应的“命令字符串”，用于去重比较
     function extractCommand(entry: string): string {
       if (historyFormat === 'fish') {
         const m = entry.split('\n')[0].match(/^- cmd: (.*)$/)
-        return m ? m[1] : entry
+        return (m ? m[1] : entry).trim()
       }
  else if (historyFormat === 'zsh') {
         const m = entry.match(/^[^;]*;(.+)$/)
-        return m ? m[1] : entry
+        return (m ? m[1] : entry).trim()
       }
  else {
         if (entry.startsWith('#')) {
           const parts = entry.split(/\r?\n/)
-          return parts[1] ?? parts[0]
+          return (parts[1] ?? parts[0]).trim()
         }
-        return entry
+        return entry.trim()
       }
     }
 
@@ -214,6 +247,23 @@ blocks.push(buffer.join('\n'))
     const tmpPath = `${historyFile}.ccommand.tmp`
     await fsp.writeFile(tmpPath, finalContent, 'utf8')
     await fsp.rename(tmpPath, historyFile)
+    try {
+      const updatedStat = await fsp.stat(historyFile)
+      historyCache.set(historyFile, {
+        mtimeMs: updatedStat.mtimeMs,
+        size: updatedStat.size,
+        entries: newEntries,
+        format: historyFormat,
+      })
+    }
+ catch {
+      historyCache.set(historyFile, {
+        mtimeMs: Date.now(),
+        size: Buffer.byteLength(finalContent),
+        entries: newEntries,
+        format: historyFormat,
+      })
+    }
   }
  catch (err) {
     log(

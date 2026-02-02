@@ -1,4 +1,5 @@
 // colorize is ESM-only in some environments; import dynamically where needed
+import process from 'node:process'
 import { jsShell } from 'lazy-js-utils/node'
 
 const log = console.log
@@ -11,11 +12,24 @@ return _colorize
   return _colorize
 }
 
-export async function gumInstall(isZh: boolean) {
+function isGumDisabled() {
+  const raw = process.env.CCOMMAND_NO_GUM || process.env.NO_GUM || ''
+  const flag = raw.toLowerCase()
+  return flag === '1' || flag === 'true' || flag === 'yes'
+}
+
+function isInteractiveTty() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY)
+}
+
+export async function gumInstall(isZh: boolean): Promise<boolean> {
+  if (isGumDisabled() || !isInteractiveTty() || process.env.CI)
+return false
+
   try {
-    const check = await jsShell('gum -v', 'pipe')
+    const check = await jsShell('gum -v', { stdio: 'pipe', errorExit: false })
     if (check.status === 0)
-return
+return true
 
     const colorize = await getColorize()
     log(
@@ -26,15 +40,16 @@ return
     )
 
     // try Homebrew first
-    const brew = await jsShell('brew install gum')
+    const brew = await jsShell('brew install gum', { errorExit: false })
     if (brew.status === 0) {
       const c = await getColorize()
-      return log(
+      log(
         c({
           color: 'green',
           text: isZh ? 'gum安装成功  🎉' : 'gum install successfully 🎉',
         }),
       )
+      return true
     }
 
     // Try apt-based install (single invocation)
@@ -42,15 +57,16 @@ return
 curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg && \
 echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list && \
 sudo apt update && sudo apt install -y gum`
-    const apt = await jsShell(aptInstallCmd)
+    const apt = await jsShell(aptInstallCmd, { errorExit: false })
     if (apt.status === 0) {
       const c = await getColorize()
-      return log(
+      log(
         c({
           color: 'green',
           text: isZh ? 'gum安装成功  🎉' : 'gum install successfully 🎉',
         }),
       )
+      return true
     }
 
     const terminalLink = (await import('terminal-link')).default
@@ -59,7 +75,7 @@ sudo apt update && sudo apt install -y gum`
       'https://github.com/charmbracelet/gum#installation',
     )
     const c = await getColorize()
-    return log(
+    log(
       c({
         color: 'red',
         text: `${
@@ -69,9 +85,15 @@ sudo apt update && sudo apt install -y gum`
         } ${c({ color: 'yellow', text: link, bold: true })}`,
       }),
     )
+    return false
   }
  catch (err) {
     const c = await getColorize()
     log(c({ color: 'red', text: `gum install check failed: ${String(err)}` }))
+    return false
   }
+}
+
+export async function ensureGum(isZh: boolean): Promise<boolean> {
+  return gumInstall(isZh)
 }

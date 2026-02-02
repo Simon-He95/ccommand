@@ -1,11 +1,13 @@
 import { exec } from 'node:child_process'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 import { promisify } from 'node:util'
 import colorize from '@simon_he/colorize'
 import { jsShell } from 'lazy-js-utils/node'
 import { isZh, log } from './constants.js'
 import { pushHistory } from './history.js'
+import { formatShellCommand } from './utils.js'
 
 const execAsync = promisify(exec)
 
@@ -53,29 +55,35 @@ export async function executeFile(
   command: string,
   successText: string,
   failedText: string,
-): Promise<void> {
-  await pushHistory(`prun ${filePath}`)
+): Promise<boolean> {
+  const historyCommand = formatShellCommand(['prun', filePath])
+  await pushHistory(historyCommand)
   const { status } = await jsShell(command, {
     errorExit: false,
     isLog: false,
     stdio: 'inherit',
   })
+  const ok = status === 0
+  if (!ok) {
+    process.exitCode = status ?? 1
+  }
 
   log(
     colorize({
-      color: status === 0 ? 'green' : 'red',
-      text: `\n"prun ${filePath}" ${status === 0 ? successText : failedText} ${
-        status === 0 ? '🎉' : '❌'
+      color: ok ? 'green' : 'red',
+      text: `\n"${historyCommand}" ${ok ? successText : failedText} ${
+        ok ? '🎉' : '❌'
       }`,
     }),
   )
+  return ok
 }
 
 export async function executeJsFile(
   filePath: string,
   successText: string,
   failedText: string,
-): Promise<void> {
+): Promise<boolean> {
   const ext = path.extname(filePath)
   let runner = 'node'
 
@@ -96,12 +104,13 @@ await initTsRunner()
           color: 'yellow',
         }),
       )
-      return
+      process.exitCode = 1
+      return false
     }
   }
 
-  const command = `${runner} ${filePath}`
-  await executeFile(filePath, command, successText, failedText)
+  const command = formatShellCommand([runner, filePath])
+  return executeFile(filePath, command, successText, failedText)
 }
 
 export async function findAndExecuteFile(

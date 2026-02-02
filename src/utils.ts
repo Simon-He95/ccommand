@@ -1,20 +1,133 @@
 import process from 'node:process'
 import { cancelledText, isZh, log } from './constants.js'
 
-export function getParams(params: string[]): [string, string, string] {
+const safeArgRegExp = /^[\w./:@%+=,-]+$/
+
+export function parseArgv(input: string): string[] {
+  const args: string[] = []
+  let current = ''
+  let quote: '\'' | '"' | null = null
+  let inArg = false
+
+  const pushCurrent = () => {
+    if (inArg) {
+      args.push(current)
+      current = ''
+      inArg = false
+    }
+  }
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]
+
+    if (quote) {
+      if (ch === quote) {
+        quote = null
+        inArg = true
+        continue
+      }
+
+      if (quote === '"' && ch === '\\') {
+        const next = input[i + 1]
+        if (next) {
+          current += next
+          inArg = true
+          i++
+          continue
+        }
+      }
+
+      current += ch
+      inArg = true
+      continue
+    }
+
+    if (ch === '"' || ch === '\'') {
+      quote = ch
+      inArg = true
+      continue
+    }
+
+    if (/\s/.test(ch)) {
+      pushCurrent()
+      while (i + 1 < input.length && /\s/.test(input[i + 1])) i++
+      continue
+    }
+
+    if (ch === '\\') {
+      const next = input[i + 1]
+      if (next) {
+        current += next
+        inArg = true
+        i++
+        continue
+      }
+    }
+
+    current += ch
+    inArg = true
+  }
+
+  pushCurrent()
+  return args
+}
+
+export function normalizeArgv(input?: string | string[]): string[] {
+  if (!input)
+return []
+  if (Array.isArray(input))
+return input
+  const trimmed = input.trim()
+  if (!trimmed)
+return []
+  return parseArgv(trimmed)
+}
+
+export function shellEscape(arg: string): string {
+  if (arg === '')
+return '\'\''
+  if (safeArgRegExp.test(arg))
+return arg
+  return `'${arg.replace(/'/g, `'\\''`)}'`
+}
+
+export function formatShellCommand(args: Array<string | undefined>): string {
+  return args
+    .filter((arg): arg is string => typeof arg === 'string')
+    .map(shellEscape)
+    .join(' ')
+}
+
+export function isSafeShellArg(arg: string): boolean {
+  return safeArgRegExp.test(arg)
+}
+
+export function getParams(params: string[]): [string, string, string[]] {
   const first = params[0]
   if (!first)
-return ['', '', '']
+return ['', '', []]
+
+  const dividerIndex = params.indexOf('--')
+  if (dividerIndex !== -1) {
+    const head = params.slice(0, dividerIndex)
+    const tail = params.slice(dividerIndex + 1)
+    const name = head[0] || ''
+    const workspace = head[1] || ''
+    const rest = head.slice(2)
+    if (name.startsWith('-'))
+return ['', '', params.slice()]
+    return [name, workspace, [...rest, ...tail]]
+  }
 
   // handle flags-only invocation
-  if (first.startsWith('--'))
-return ['', '', params.join(' ')]
+  if (first.startsWith('-'))
+return ['', '', params.slice()]
 
   // if second arg is flags, treat it as param string
-  if (params[1] && params[1].startsWith('--'))
-    return [first, '', params.slice(1).join(' ')]
+  if (params[1] && params[1].startsWith('-'))
+    return [first, '', params.slice(1)]
 
-  return [first, params[1] || '', params.slice(2).join(' ')]
+  return [first, params[1] || '', params.slice(2)]
 }
 
 function escapeRegExp(s: string) {

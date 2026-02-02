@@ -20,10 +20,15 @@ import {
 } from './constants.js'
 // 导入新模块
 import { findAndExecuteFile, handleFileExecution } from './file-execution.js'
-import { gumInstall } from './gumInstall.js'
+import { ensureGum } from './gumInstall.js'
 import { pushHistory } from './history.js'
 import { readMakefile } from './makefile.js'
-import { fuzzyMatch, getParams } from './utils.js'
+import {
+  formatShellCommand,
+  fuzzyMatch,
+  getParams,
+  normalizeArgv,
+} from './utils.js'
 import { getData, getWorkspaceNames } from './workspace.js'
 
 // Then wrap your getPkg calls
@@ -36,23 +41,22 @@ export const getScripts = exportedGetScripts
 export const getCommand = exportedGetCommand
 export const runScript = exportedRunScript
 
-function needPrefixCheck(argv0: string, prefix: string, argv: string[]) {
+function needPrefixCheck(argv0: string, prefixArgs: string[], argv: string[]) {
   if (argv0 === 'find') {
-    return Boolean(argv[1] && prefix)
+    return Boolean(argv[1] && prefixArgs.length)
   }
-  return Boolean(argv[1] && prefix)
+  return Boolean(argv[1] && prefixArgs.length)
 }
 
-export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
-  await gumInstall(isZh)
+export async function ccommand(
+  userParams: string | string[] = process.argv.slice(2),
+) {
   const noWorkspaceText = isZh
     ? '当前目录不存在任何子目录'
     : 'The current directory does not have any subdirectories'
   const successText = isZh ? '运行成功' : 'run successfully'
   const failedText = isZh ? '运行失败' : 'run error'
-  const argv = userParams
-    ? userParams.replace(/\s+/g, ' ').trim().split(' ')
-    : process.argv.slice(2)
+  const argv = normalizeArgv(userParams)
   if (argv[0] === '-v' || argv[0] === '--version') {
     return log(
       colorize({
@@ -127,8 +131,11 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
           return r
         }, {} as Record<string, string>)
         let script = ''
-        if (userParams) {
-          script = fuzzyMatch(fuzzyOptions, userParams) || ''
+        let makePrefixArgs: string[] = []
+        if (argv.length) {
+          const target = argv[0]
+          makePrefixArgs = argv.slice(1)
+          script = fuzzyMatch(fuzzyOptions, target) || ''
           if (!script) {
             return log(
               colorize({
@@ -139,6 +146,17 @@ export async function ccommand(userParams = process.argv.slice(2).join(' ')) {
           }
         }
  else {
+          const gumReady = await ensureGum(isZh)
+          if (!gumReady) {
+            return log(
+              colorize({
+                color: 'yellow',
+                text: isZh
+                  ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入 make 目标名称'
+                  : 'Gum is unavailable (non-interactive or disabled). Please pass a make target explicitly.',
+              }),
+            )
+          }
           const { result, status } = await jsShell(
             `echo "${options
               .map(i => i.name)
@@ -154,7 +172,7 @@ return cancel()
         await runScript(
           termStart,
           script.trim()!,
-          '',
+          makePrefixArgs,
           argv,
           pushHistory,
           jsShell,
@@ -188,7 +206,7 @@ return cancel()
   }
 
   // 下面是原始代码，保持不变
-  const [name, fuzzyWorkspace, params] = getParams(argv)
+  const [name, fuzzyWorkspace, paramsArgs] = getParams(argv)
   let dirname = name
   let scripts: Record<string, string> | undefined
   if (argv[0] === 'find') {
@@ -204,6 +222,17 @@ return cancel()
         if (!getWorkspaceNames().length)
           return log(colorize({ color: 'yellow', text: noWorkspaceText }))
 
+        const gumReady = await ensureGum(isZh)
+        if (!gumReady) {
+          return log(
+            colorize({
+              color: 'yellow',
+              text: isZh
+                ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入 workspace 名称'
+                : 'Gum is unavailable (non-interactive or disabled). Please pass a workspace name explicitly.',
+            }),
+          )
+        }
         const { result: choose, status } = await jsShell(
           `echo ${getWorkspaceNames().join(
             ',',
@@ -229,6 +258,17 @@ return cancel()
           )
         }
 
+        const gumReady = await ensureGum(isZh)
+        if (!gumReady) {
+          return log(
+            colorize({
+              color: 'yellow',
+              text: isZh
+                ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入 workspace 名称'
+                : 'Gum is unavailable (non-interactive or disabled). Please pass a workspace name explicitly.',
+            }),
+          )
+        }
         const { result: choose, status } = await jsShell(
           `echo ${getWorkspaceNames().join(
             ',',
@@ -271,7 +311,7 @@ return cancel()
         await runScript(
           termStart,
           argv[0],
-          argv.slice(1).join(' '),
+          argv.slice(1),
           argv,
           pushHistory,
           jsShell,
@@ -340,11 +380,11 @@ return
         }
  else {
           // 原有的执行脚本逻辑
-          const prefix = argv.slice(1).join(' ')
+          const prefixArgs = argv.slice(1)
           await runScript(
             termStart,
             script,
-            prefix,
+            prefixArgs,
             argv,
             pushHistory,
             jsShell,
@@ -383,6 +423,17 @@ return
         .replace(/(["`])/g, '\\$1')}"${splitFlag}`
       return result
     }, '')
+    const gumReady = await ensureGum(isZh)
+    if (!gumReady) {
+      return log(
+        colorize({
+          color: 'yellow',
+          text: isZh
+            ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入脚本名称'
+            : 'Gum is unavailable (non-interactive or disabled). Please pass a script name explicitly.',
+        }),
+      )
+    }
     const { result, status } = await jsShell(
       `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
       {
@@ -412,7 +463,7 @@ return cancel()
     val: computedVal,
   } = await getCommand({
     termStart,
-    params,
+    params: paramsArgs,
     dirname,
     argv,
     val,
@@ -421,10 +472,10 @@ return cancel()
     pushHistory,
     jsShell,
     // provide a scope-aware isNeedPrefix that uses the current argv
-    isNeedPrefix: (p: string) => needPrefixCheck(argv[0], p, argv),
+    isNeedPrefix: (p: string[]) => needPrefixCheck(argv[0], p, argv),
     fuzzyWorkspace,
   })
-  const _command = computedCommand.replace(/\s+/g, ' ')
+  const _command = computedCommand
   val = computedVal
   const { status, result = '' } = await jsShell(_command, {
     errorExit: false,
@@ -456,10 +507,16 @@ return cancel()
         color: 'yellow',
       }),
     )
-    const { status } = await jsShell(
-      `npm run ${val}${params ? ` -- ${params}` : ''}`,
-      'inherit',
-    )
+    const npmArgs = [...paramsArgs]
+    if (npmArgs[0] === '--')
+npmArgs.shift()
+    const npmCommand = formatShellCommand([
+      'npm',
+      'run',
+      val,
+      ...(npmArgs.length ? ['--', ...npmArgs] : []),
+    ])
+    const { status } = await jsShell(npmCommand, 'inherit')
     if (status === 0) {
       return log(
         colorize({

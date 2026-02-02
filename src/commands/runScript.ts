@@ -1,10 +1,11 @@
 import type colorize from '@simon_he/colorize'
 import type { pushHistory } from '../history.js'
+import { formatShellCommand } from '../utils.js'
 
 export async function runScript(
   termStart: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'make',
   script: string,
-  prefix: string,
+  prefixArgs: string[],
   argv: string[],
   pushHistoryFn: typeof pushHistory,
   jsShellFn: any,
@@ -16,6 +17,11 @@ export async function runScript(
   let status: number | null | undefined
   let result = ''
   const arg = argv[0]?.trim()
+  const matchedDisplay = formatShellCommand([script, ...prefixArgs])
+  const attemptedDisplay = formatShellCommand([
+    script || argv[0] || '',
+    ...prefixArgs,
+  ])
   if (script && arg && arg !== script) {
     // slight reformatting of the original message
 
@@ -24,7 +30,7 @@ export async function runScript(
         text: `🤔 ${colorizeFn({ text: `'${argv[0]}'`, color: 'cyan' })} ${
           isZhFlag ? '自动的为您匹配成' : 'automatically match for you'
         } ${colorizeFn({
-          text: `'${script}${prefix ? ` ${prefix}` : ''}'`,
+          text: `'${matchedDisplay}'`,
           color: 'cyan',
         })} `,
         color: 'yellow',
@@ -34,16 +40,54 @@ export async function runScript(
  else if (script) {
     console.log(
       colorizeFn({
-        text: `🤔 is running for you... ${script}`,
+        text: `🤔 is running for you... ${matchedDisplay}`,
         color: 'magenta',
       }),
     )
   }
 
+  const buildRunCommand = () => {
+    switch (termStart) {
+      case 'npm': {
+        const args = ['run', script]
+        if (prefixArgs.length) {
+          if (prefixArgs[0] !== '--')
+args.push('--')
+          args.push(...prefixArgs)
+        }
+        return formatShellCommand(['npm', ...args])
+      }
+      case 'pnpm': {
+        return formatShellCommand(['pnpm', 'run', script, ...prefixArgs])
+      }
+      case 'yarn': {
+        return formatShellCommand(['yarn', script, ...prefixArgs])
+      }
+      case 'bun': {
+        return formatShellCommand(['bun', 'run', script, ...prefixArgs])
+      }
+      case 'make': {
+        return formatShellCommand(['make', script, ...prefixArgs])
+      }
+      default: {
+        return formatShellCommand([script, ...prefixArgs])
+      }
+    }
+  }
+  const buildNpmCommand = () => {
+    const args = ['run', script]
+    if (prefixArgs.length) {
+      if (prefixArgs[0] !== '--')
+args.push('--')
+      args.push(...prefixArgs)
+    }
+    return formatShellCommand(['npm', ...args])
+  }
+
   switch (termStart) {
     case 'npm': {
       const { status: _status, result: _result } = await jsShellFn(
-        `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
+        buildRunCommand(),
         {
           errorExit: false,
           isLog: false,
@@ -56,7 +100,7 @@ export async function runScript(
     }
     case 'pnpm': {
       const { status: _status, result: _result = '' } = await jsShellFn(
-        `pnpm run ${script}${prefix ? ` ${prefix}` : ''}`,
+        buildRunCommand(),
         {
           errorExit: false,
           isLog: false,
@@ -77,7 +121,7 @@ export async function runScript(
           }),
         )
         const { status: _status, result: _result } = await jsShellFn(
-          `npm run ${script}${prefix ? ` -- ${prefix}` : ''}`,
+          buildNpmCommand(),
           {
             errorExit: false,
             isLog: false,
@@ -91,7 +135,7 @@ export async function runScript(
     }
     case 'yarn': {
       const { status: _status, result: _result } = await jsShellFn(
-        `yarn ${script}${prefix ? ` ${prefix}` : ''}`,
+        buildRunCommand(),
         {
           errorExit: false,
           isLog: false,
@@ -104,7 +148,7 @@ export async function runScript(
     }
     case 'bun': {
       const { status: _status, result: _result } = await jsShellFn(
-        `bun run ${script} ${prefix}`,
+        buildRunCommand(),
         {
           errorExit: false,
           isLog: false,
@@ -117,7 +161,7 @@ export async function runScript(
     }
     case 'make': {
       const { status: _status, result: _result } = await jsShellFn(
-        `make ${script} ${prefix}`,
+        buildRunCommand(),
         {
           errorExit: false,
           isLog: false,
@@ -130,13 +174,12 @@ export async function runScript(
     }
   }
   if (status === 0) {
-    await pushHistoryFn(`prun ${script}${prefix ? ` ${prefix}` : ''}`)
+    const historyCommand = formatShellCommand(['prun', script, ...prefixArgs])
+    await pushHistoryFn(historyCommand)
     return console.log(
       colorizeFn({
         color: 'green',
-        text: `\nprun '${script}${
-          prefix ? ` ${prefix}` : ''
-        }' ${successText} 🎉`,
+        text: `\n${historyCommand} ${successText} 🎉`,
       }),
     )
   }
@@ -147,7 +190,7 @@ export async function runScript(
       text: `\ncommand ${colorizeFn({
         bold: true,
         color: 'cyan',
-        text: `'${script || argv[0]}${prefix ? ` ${prefix}` : ''}'`,
+        text: `'${attemptedDisplay}'`,
       })} ${failedText} ❌`,
     }),
   )

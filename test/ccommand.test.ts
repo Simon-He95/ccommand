@@ -5,7 +5,7 @@ describe('ccommand helpers', () => {
   it('getCommand builds npm run command and text', async () => {
     const ctx = {
       termStart: 'npm',
-      params: 'a b',
+      params: ['a', 'b'],
       dirname: 'mydir',
       argv: ['run'],
       val: 'test',
@@ -13,7 +13,7 @@ describe('ccommand helpers', () => {
       isZh: false,
       pushHistory: async () => {},
       jsShell: async () => ({ status: 0, result: '' }),
-      isNeedPrefix: (p: string) => !!p,
+      isNeedPrefix: (p: string[]) => p.length > 0,
       fuzzyWorkspace: undefined,
     } as any
 
@@ -37,7 +37,7 @@ describe('ccommand helpers', () => {
     await runScript(
       'npm',
       'build',
-      '',
+      [],
       ['build'],
       pushHistory as any,
       jsShell as any,
@@ -59,7 +59,7 @@ describe('ccommand helpers', () => {
     await runScript(
       'npm',
       'build',
-      '',
+      [],
       ['build'],
       pushHistory as any,
       jsShell as any,
@@ -89,7 +89,7 @@ describe('ccommand helpers', () => {
     await runScript(
       'pnpm',
       'build',
-      '',
+      [],
       ['build'],
       pushHistory as any,
       jsShell as any,

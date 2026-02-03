@@ -400,21 +400,20 @@ return
  catch {}
   }
 
-  if (!scripts) {
-    return log(
-      colorize({
-        color: 'red',
-        text: isZh ? '找不到任何可执行脚本' : 'No scripts found',
-      }),
-    )
-  }
-
   const keys: string[] = []
   let val = ''
-  if (
-    !fuzzyWorkspace
-    || (argv[0] === 'find' && (!argv[2] || argv[2].startsWith('--')))
-  ) {
+  const needsScriptList
+    = !fuzzyWorkspace
+      || (argv[0] === 'find' && (!argv[2] || argv[2].startsWith('--')))
+  if (needsScriptList) {
+    if (!scripts || Object.keys(scripts).length === 0) {
+      return log(
+        colorize({
+          color: 'red',
+          text: isZh ? '找不到任何可执行脚本' : 'No scripts found',
+        }),
+      )
+    }
     const options = Object.keys(scripts).reduce((result, key) => {
       const value = scripts?.[key] ?? ''
       keys.push(key)

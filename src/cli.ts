@@ -1,3 +1,3 @@
-import { ccommand } from './ccommand.js'
+import { ccommand } from 'ccommand'
 
 ccommand()

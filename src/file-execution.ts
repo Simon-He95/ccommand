@@ -187,7 +187,7 @@ export async function handleFileExecution(
         log(
           colorize({
             color: 'green',
-            text: `\n"prun ${argv0}" ${successText} 🎉`,
+            text: `\n"prun --${argv0}" ${successText} 🎉`,
           }),
         )
       }

@@ -20,7 +20,7 @@ describe('ccommand helpers', () => {
     const res = await getCommand(ctx)
     expect(res.command).toContain('npm run')
     // getCommand highlights the last token (the last param) with quotes
-    expect(res.text).toContain("'b'")
+    expect(res.text).toContain('b')
     expect(res.val).toBe('test')
   })
 

@@ -113,7 +113,7 @@ historyArgs.push(target)
     .map((arg, index) => {
       const isLast = index === historyArgs.length - 1
       if (isLast && isSafeShellArg(arg))
-return `'${arg}'`
+return arg
       return shellEscape(arg)
     })
     .join(' ')

@@ -3,8 +3,12 @@
     "target": "esnext",
     "jsx": "preserve",
     "lib": ["esnext", "DOM"],
+    "baseUrl": ".",
     "module": "NodeNext",
     "moduleResolution": "nodenext",
+    "paths": {
+      "ccommand": ["./src/index.ts"]
+    },
     "resolveJsonModule": true,
     "strict": true,
     "strictNullChecks": true,

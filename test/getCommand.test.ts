@@ -27,7 +27,7 @@ describe('getCommand variations', () => {
     const ctx = baseCtx({ termStart: 'pnpm' })
     const res = await getCommand(ctx)
     expect(res.command).toContain('pnpm run')
-    expect(res.text).toContain("'b'")
+    expect(res.text).toContain('b')
   })
 
   it('yarn produces workspace command without `run`', async () => {

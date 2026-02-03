@@ -529,7 +529,7 @@ npmArgs.shift()
   log(
     colorize({
       color: 'red',
-      text: `\ncommand '${val}' ${failedText} ❌`,
+      text: `\ncommand ${val} ${failedText} ❌`,
     }),
   )
   // Note: getScripts and transformScripts are provided by the commands module now.

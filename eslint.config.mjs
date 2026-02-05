@@ -5,6 +5,7 @@ export default simon({
     'no-console': 'off',
     'style/indent': 'off',
     'style/comma-dangle': 'off',
+    'no-template-curly-in-string': 'off',
   },
   ignores: ['**/fixtures', 'test'],
 })

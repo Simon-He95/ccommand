@@ -1,7 +1,7 @@
 <span><div align="center">![kv](/assets/kv.png)</div></span>
 
 - 高效的执行命令行工具 | Efficient execution of command-line tools
-- 基于 [gum](https://github.com/charmbracelet/gum#installation) | Powered by [gum](https://github.com/charmbracelet/gum#installation)
+- 内置模糊搜索 Picker | Built-in fuzzy-search picker
 
 ## 介绍 | Introduction
 
@@ -19,8 +19,31 @@ npm install -g ccommand # 安装ccommand install ccommand
 ccommand -v # 查看版本 view version
 ccommand find # 查找workspace find workspace
 ccommand # 执行当前script Execute the current script
+ccommand --init # 自动检测当前shell并输出集成脚本 Auto-detect shell and output init script
+ccommand --init zsh # 输出shell集成脚本 eval "$(ccommand --init zsh)"
+CCOMMAND_BIN="node ./cli.mjs" ccommand --init zsh # 本地调试时指定二进制
 ccommand -help # 查看帮助 view help
 ```
+
+## Shell 集成
+
+```
+# 临时生效（当前终端）
+eval "$(ccommand --init zsh)"
+
+# 本地调试：未全局安装时，指定可执行命令
+eval "$(node ./cli.mjs --init zsh 'node ./cli.mjs')"
+```
+
+```
+# bash
+eval "$(ccommand --init bash)"
+
+# fish
+eval (ccommand --init fish)
+```
+
+> 说明：由于子进程无法直接修改父 shell 的内存状态，必须通过 `eval`（或写入 shell 配置文件）让函数在当前 shell 生效。
 
 ## 语言 ｜ Language
 
@@ -36,8 +59,8 @@ export PI_LANG=en
 ## 配置 ｜ Config
 
 ```
-# 禁用 gum 自动安装/交互选择 (也支持 NO_GUM)
-export CCOMMAND_NO_GUM=1
+# 禁用交互选择 (支持 CCOMMAND_NO_PICKER / NO_PICKER，兼容旧的 CCOMMAND_NO_GUM / NO_GUM)
+export CCOMMAND_NO_PICKER=1
 
 # 禁用写入 shell history (也支持 NO_HISTORY)
 export CCOMMAND_NO_HISTORY=1

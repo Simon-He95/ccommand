@@ -9,25 +9,18 @@ import { getCommand as exportedGetCommand } from './commands/getCommand.js'
 
 import { getScripts as exportedGetScripts } from './commands/getScripts.js'
 import { runScript as exportedRunScript } from './commands/runScript.js'
-import {
-  cancel,
-  cancelCode,
-  isZh,
-  log,
-  notfound,
-  runMsg,
-  splitFlag,
-} from './constants.js'
+import { cancel, cancelCode, isZh, log, notfound, runMsg } from './constants.js'
 // 导入新模块
 import { findAndExecuteFile, handleFileExecution } from './file-execution.js'
-import { ensureGum } from './gumInstall.js'
 import { pushHistory } from './history.js'
 import { readMakefile } from './makefile.js'
+import { ensurePicker, pickFromList } from './picker.js'
 import {
   formatShellCommand,
   fuzzyMatch,
   getParams,
   normalizeArgv,
+  shellEscape,
 } from './utils.js'
 import { getData, getWorkspaceNames } from './workspace.js'
 
@@ -57,6 +50,66 @@ export async function ccommand(
   const successText = isZh ? '运行成功' : 'run successfully'
   const failedText = isZh ? '运行失败' : 'run error'
   const argv = normalizeArgv(userParams)
+  if (argv[0] === 'init' || argv[0] === '--init') {
+    const shellFromArg = argv[1]
+    const binFromArg = argv[2]
+    const binFromEnv = process.env.CCOMMAND_BIN
+    const bin = binFromArg || binFromEnv || 'ccommand'
+    const binLiteral = shellEscape(bin)
+    const shellEnv = process.env.SHELL || ''
+    const envShell
+      = (process.env.FISH_VERSION && 'fish')
+        || (process.env.ZSH_VERSION && 'zsh')
+        || (process.env.BASH_VERSION && 'bash')
+        || (shellEnv ? shellEnv.split('/').pop() || '' : '')
+        || ''
+    const shellName = shellFromArg || envShell || 'zsh'
+    let initScript = ''
+    if (shellName === 'zsh') {
+      initScript = [
+        'ccommand() {',
+        `  local bin=${binLiteral}`,
+        '  local -a cmd',
+        '  cmd=(' + '${=bin}' + ')',
+        '  command "' + '${cmd[@]}' + '" "$@"',
+        '  fc -R',
+        '}',
+      ].join('\n')
+    }
+ else if (shellName === 'bash') {
+      initScript = [
+        'ccommand() {',
+        `  local bin=${binLiteral}`,
+        '  local -a cmd',
+        '  read -r -a cmd <<< "$bin"',
+        '  command "' + '${cmd[@]}' + '" "$@"',
+        '  history -n',
+        '}',
+      ].join('\n')
+    }
+ else if (shellName === 'fish') {
+      initScript = [
+        'function ccommand',
+        `  set -l bin ${binLiteral}`,
+        '  set -l cmd (string split -- " " $bin)',
+        '  command $cmd $argv',
+        '  history --merge',
+        'end',
+      ].join('\n')
+    }
+ else {
+      return log(
+        colorize({
+          color: 'red',
+          text: isZh
+            ? `不支持的 shell: ${shellName}`
+            : `Unsupported shell: ${shellName}`,
+        }),
+      )
+    }
+    // Plain output for eval in the parent shell.
+    return console.log(initScript)
+  }
   if (argv[0] === '-v' || argv[0] === '--version') {
     return log(
       colorize({
@@ -91,6 +144,7 @@ export async function ccommand(
   - ccommand -help 查看帮助
   - ccommand 执行当前package.json
   - ccommand find 查找当前workspace的所有目录
+  - ccommand --init [zsh|bash|fish] [bin] 输出 shell 集成脚本（未传则自动检测）
       `,
     color: 'cyan',
   })}
@@ -146,24 +200,24 @@ export async function ccommand(
           }
         }
  else {
-          const gumReady = await ensureGum(isZh)
-          if (!gumReady) {
+          const pickerReady = await ensurePicker(isZh)
+          if (!pickerReady) {
             return log(
               colorize({
                 color: 'yellow',
                 text: isZh
-                  ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入 make 目标名称'
-                  : 'Gum is unavailable (non-interactive or disabled). Please pass a make target explicitly.',
+                  ? '未检测到可用的交互环境或交互选择已被禁用，请直接传入 make 目标名称'
+                  : 'Interactive picker is unavailable (non-interactive or disabled). Please pass a make target explicitly.',
               }),
             )
           }
-          const { result, status } = await jsShell(
-            `echo "${options
-              .map(i => i.name)
-              .join(
-                '\n',
-              )}" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
-            'pipe',
+          const { result, status } = await pickFromList(
+            options.map(i => i.name),
+            {
+              placeholder: isZh
+                ? '🤔请选择一个要执行的指令'
+                : 'Please select a command to run',
+            },
           )
           if (status === cancelCode)
 return cancel()
@@ -222,26 +276,24 @@ return cancel()
         if (!getWorkspaceNames().length)
           return log(colorize({ color: 'yellow', text: noWorkspaceText }))
 
-        const gumReady = await ensureGum(isZh)
-        if (!gumReady) {
+        const pickerReady = await ensurePicker(isZh)
+        if (!pickerReady) {
           return log(
             colorize({
               color: 'yellow',
               text: isZh
-                ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入 workspace 名称'
-                : 'Gum is unavailable (non-interactive or disabled). Please pass a workspace name explicitly.',
+                ? '未检测到可用的交互环境或交互选择已被禁用，请直接传入 workspace 名称'
+                : 'Interactive picker is unavailable (non-interactive or disabled). Please pass a workspace name explicitly.',
             }),
           )
         }
-        const { result: choose, status } = await jsShell(
-          `echo ${getWorkspaceNames().join(
-            ',',
-          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
-            isZh
-              ? '请选择一个要执行的目录'
-              : 'Please select a directory to execute'
-          }"`,
-          ['inherit', 'pipe', 'inherit'],
+        const { result: choose, status } = await pickFromList(
+          getWorkspaceNames(),
+          {
+            placeholder: isZh
+              ? '🤔请选择一个要执行的目录'
+              : 'Please select a directory to execute',
+          },
         )
         dirname = choose
         if (status === cancelCode)
@@ -258,26 +310,24 @@ return cancel()
           )
         }
 
-        const gumReady = await ensureGum(isZh)
-        if (!gumReady) {
+        const pickerReady = await ensurePicker(isZh)
+        if (!pickerReady) {
           return log(
             colorize({
               color: 'yellow',
               text: isZh
-                ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入 workspace 名称'
-                : 'Gum is unavailable (non-interactive or disabled). Please pass a workspace name explicitly.',
+                ? '未检测到可用的交互环境或交互选择已被禁用，请直接传入 workspace 名称'
+                : 'Interactive picker is unavailable (non-interactive or disabled). Please pass a workspace name explicitly.',
             }),
           )
         }
-        const { result: choose, status } = await jsShell(
-          `echo ${getWorkspaceNames().join(
-            ',',
-          )} | sed "s/,/\\n/g" | gum filter --placeholder=" 🤔${
-            isZh
-              ? '请选择一个要执行的目录'
-              : 'Please select a directory to execute'
-          }"`,
-          ['inherit', 'pipe', 'inherit'],
+        const { result: choose, status } = await pickFromList(
+          getWorkspaceNames(),
+          {
+            placeholder: isZh
+              ? '🤔请选择一个要执行的目录'
+              : 'Please select a directory to execute',
+          },
         )
         if (status === cancelCode)
 return cancel()
@@ -400,7 +450,6 @@ return
  catch {}
   }
 
-  const keys: string[] = []
   let val = ''
   const needsScriptList
     = !fuzzyWorkspace
@@ -414,32 +463,27 @@ return
         }),
       )
     }
-    const options = Object.keys(scripts).reduce((result, key) => {
+    const options = Object.keys(scripts).map((key) => {
       const value = scripts?.[key] ?? ''
-      keys.push(key)
-      result += `"${key}: ${value
-        .replace(/\\/g, '\\\\')
-        .replace(/(["`])/g, '\\$1')}"${splitFlag}`
-      return result
-    }, '')
-    const gumReady = await ensureGum(isZh)
-    if (!gumReady) {
+      const displayValue = value.replace(/[\r\n]+/g, ' ')
+      return `${key}: ${displayValue}`
+    })
+    const pickerReady = await ensurePicker(isZh)
+    if (!pickerReady) {
       return log(
         colorize({
           color: 'yellow',
           text: isZh
-            ? '未检测到可用的交互环境或 gum 已被禁用，请直接传入脚本名称'
-            : 'Gum is unavailable (non-interactive or disabled). Please pass a script name explicitly.',
+            ? '未检测到可用的交互环境或交互选择已被禁用，请直接传入脚本名称'
+            : 'Interactive picker is unavailable (non-interactive or disabled). Please pass a script name explicitly.',
         }),
       )
     }
-    const { result, status } = await jsShell(
-      `echo ${options} | sed "s/${splitFlag}/\\n/g" | gum filter --placeholder=" 🤔请选择一个要执行的指令"`,
-      {
-        stdio: ['inherit', 'pipe', 'inherit'],
-        isLog: false,
-      },
-    )
+    const { result, status } = await pickFromList(options, {
+      placeholder: isZh
+        ? '🤔请选择一个要执行的指令'
+        : 'Please select a command to run',
+    })
     if (status === cancelCode)
 return cancel()
     val = result.substring(0, result.indexOf(': '))

@@ -100,16 +100,26 @@ return null
 
 function rankItems(items: string[], query: string) {
   if (!query.trim()) {
-    return items.map((item, index) => ({ item, score: 0, index }))
+    return items.map((item, index) => ({
+      item,
+      score: 0,
+      index,
+      positions: [] as number[],
+    }))
   }
   const scored = items
     .map((item, index) => {
       const match = scoreItem(query, item)
       if (!match)
 return null
-      return { item, score: match.score, index }
+      return { item, score: match.score, index, positions: match.positions }
     })
-    .filter(Boolean) as Array<{ item: string, score: number, index: number }>
+    .filter(Boolean) as Array<{
+    item: string
+    score: number
+    index: number
+    positions: number[]
+  }>
 
   scored.sort((a, b) => {
     if (b.score !== a.score)
@@ -127,6 +137,45 @@ return text
   if (maxColumns <= 3)
 return text.slice(0, maxColumns)
   return `${text.slice(0, maxColumns - 3)}...`
+}
+
+function truncateItem(text: string, maxColumns: number | undefined) {
+  if (!maxColumns || maxColumns <= 0)
+    return { text, visibleLength: text.length }
+  if (text.length <= maxColumns)
+return { text, visibleLength: text.length }
+  if (maxColumns <= 3)
+    return { text: text.slice(0, maxColumns), visibleLength: maxColumns }
+  const visibleLength = maxColumns - 3
+  return { text: `${text.slice(0, visibleLength)}...`, visibleLength }
+}
+
+function applyHighlight(
+  text: string,
+  positions: number[],
+  highlightStyle: string,
+  resumeStyle: string,
+) {
+  if (!highlightStyle || !positions.length)
+return text
+  const posSet = new Set(positions)
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] || ''
+    if (posSet.has(i)) {
+      out += `${highlightStyle}${ch}${resumeStyle}`
+    }
+ else {
+      out += ch
+    }
+  }
+  return out
+}
+
+function dimLine(text: string, useColor: boolean) {
+  if (!useColor)
+return text
+  return `\u001B[2m${text}\u001B[0m`
 }
 
 export function isInteractiveTty() {
@@ -201,12 +250,6 @@ readline.moveCursor(output, 0, -1)
     renderedLines = 0
   }
 
-  const formatLine = (text: string, selected: boolean) => {
-    if (!selected || !useColor)
-return text
-    return `\u001B[1m\u001B[36m${text}\u001B[0m`
-  }
-
   const updateOffset = () => {
     if (cursor < offset)
 offset = cursor
@@ -221,7 +264,7 @@ offset = 0
 
     const lines: string[] = []
     const prompt = `? ${promptLabel}`
-    lines.push(truncateLine(prompt, output.columns))
+    lines.push(dimLine(truncateLine(prompt, output.columns), useColor))
     const cursorMark = '|'
     const before = query.slice(0, inputCursor)
     const after = query.slice(inputCursor)
@@ -237,13 +280,36 @@ offset = 0
       slice.forEach((entry, index) => {
         const isSelected = offset + index === cursor
         const prefix = isSelected ? '> ' : '  '
-        const line = truncateLine(`${prefix}${entry.item}`, output.columns)
-        lines.push(formatLine(line, isSelected))
+        const maxColumns = output.columns
+          ? Math.max(0, output.columns - prefix.length)
+          : undefined
+        const truncated = truncateItem(entry.item, maxColumns)
+        const visiblePositions = entry.positions.filter(
+          pos => pos >= 0 && pos < truncated.visibleLength,
+        )
+        const baseStyle = useColor && isSelected ? '\u001B[44m' : ''
+        const highlightStyle = useColor ? `${baseStyle}\u001B[1m\u001B[35m` : ''
+        const resetStyle = useColor ? '\u001B[0m' : ''
+        const resumeStyle = baseStyle ? `${resetStyle}${baseStyle}` : resetStyle
+        let line = ''
+        if (baseStyle)
+line += baseStyle
+        line += prefix
+        line += applyHighlight(
+          truncated.text,
+          visiblePositions,
+          highlightStyle,
+          resumeStyle,
+        )
+        if (baseStyle)
+line += resetStyle
+        lines.push(line)
       })
     }
 
+    lines.push('')
     const meta = ranked.length ? `(${cursor + 1}/${ranked.length})` : ''
-    lines.push(`  ${helpText} ${meta}`.trimEnd())
+    lines.push(dimLine(`  ${helpText} ${meta}`.trimEnd(), useColor))
 
     output.write(lines.join('\n'))
     renderedLines = lines.length
@@ -302,14 +368,16 @@ return finish(cancelCode, '')
         if (str === '\u001B')
 return finish(cancelCode, '')
         if (str === '\u001B[A') {
-          if (cursor > 0)
-cursor--
+          if (ranked.length) {
+            cursor = cursor > 0 ? cursor - 1 : ranked.length - 1
+          }
           render()
           return
         }
         if (str === '\u001B[B') {
-          if (cursor < ranked.length - 1)
-cursor++
+          if (ranked.length) {
+            cursor = cursor < ranked.length - 1 ? cursor + 1 : 0
+          }
           render()
           return
         }

@@ -28,6 +28,28 @@ function isHistoryDisabled() {
   return flag === '1' || flag === 'true' || flag === 'yes'
 }
 
+function resolveHistoryHintPath() {
+  const custom = process.env.CCOMMAND_HISTORY_HINT || ''
+  if (custom)
+return custom
+
+  const home = process.env.HOME || os.homedir()
+  const cacheHome = process.env.XDG_CACHE_HOME || path.join(home, '.cache')
+  return path.join(cacheHome, 'ccommand', 'last-history')
+}
+
+async function writeLastHistory(command: string) {
+  const hintPath = resolveHistoryHintPath()
+  try {
+    await fsp.mkdir(path.dirname(hintPath), { recursive: true })
+    const timestamp = Date.now()
+    await fsp.writeFile(hintPath, `${timestamp}\t${command}\n`, 'utf8')
+  }
+ catch {
+    // ignore hint write failures
+  }
+}
+
 export async function pushHistory(command: string) {
   if (isHistoryDisabled())
 return
@@ -71,6 +93,7 @@ return
   }
 
   try {
+    await writeLastHistory(command)
     // Use async access check to avoid blocking the event loop and handle race conditions.
     try {
       await fsp.access(historyFile)

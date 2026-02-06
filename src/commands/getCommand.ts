@@ -12,6 +12,7 @@ export async function getCommand(ctx: {
   jsShell: any
   isNeedPrefix: (p: string[]) => boolean
   fuzzyWorkspace?: string
+  recordHistory?: boolean
 }) {
   let {
     termStart,
@@ -107,7 +108,8 @@ historyArgs.push(target)
   historyArgs.push(...prefixArgs)
 
   const historyText = formatShellCommand(historyArgs)
-  await pushHistory(historyText)
+  if (ctx.recordHistory !== false)
+await pushHistory(historyText)
 
   const highlighText = historyArgs
     .map((arg, index) => {
@@ -117,5 +119,5 @@ return arg
       return shellEscape(arg)
     })
     .join(' ')
-  return { command: result, text: highlighText, val }
+  return { command: result, text: highlighText, val, historyText }
 }

@@ -214,13 +214,17 @@ return { status: cancelCode, result: '' }
   ).trim()
   const helpText = isZh
     ? '上/下选择 左/右移动 Enter确认 Esc取消'
-    : 'Up/Down Move Left/Right Cursor Enter select Esc cancel'
+    : '↑/↓ Move ←/→ Cursor Enter select Esc cancel'
 
   let query = ''
   let cursor = 0
   let offset = 0
   let inputCursor = 0
   let renderedLines = 0
+  let cursorVisible = true
+  let blinkTimer: ReturnType<typeof setInterval> | null = null
+
+  const cursorBlinkMs = 500
 
   const maxVisible = Math.max(
     4,
@@ -265,7 +269,7 @@ offset = 0
     const lines: string[] = []
     const prompt = `? ${promptLabel}`
     lines.push(dimLine(truncateLine(prompt, output.columns), useColor))
-    const cursorMark = '|'
+    const cursorMark = cursorVisible ? '|' : ' '
     const before = query.slice(0, inputCursor)
     const after = query.slice(inputCursor)
     const inputLine = `  > ${before}${cursorMark}${after}`
@@ -315,6 +319,23 @@ line += resetStyle
     renderedLines = lines.length
   }
 
+  const startBlink = () => {
+    if (blinkTimer)
+return
+    blinkTimer = setInterval(() => {
+      cursorVisible = !cursorVisible
+      render()
+    }, cursorBlinkMs)
+  }
+
+  const stopBlink = () => {
+    if (!blinkTimer)
+return
+    clearInterval(blinkTimer)
+    blinkTimer = null
+    cursorVisible = true
+  }
+
   const updateRanking = () => {
     ranked = rankItems(items, query)
     // Reset selection to the first item after query changes.
@@ -346,11 +367,13 @@ return
       if (input.isTTY)
 input.setRawMode(false)
       input.pause()
+      stopBlink()
       clearRendered()
       showCursor()
     }
 
     function onData(data: Buffer) {
+      cursorVisible = true
       const str = data.toString('utf8')
 
       if (str === '\u0003' || str === '\u0004')
@@ -449,6 +472,7 @@ input.setRawMode(true)
     input.on('data', onData)
 
     hideCursor()
+    startBlink()
     render()
   })
 }

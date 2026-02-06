@@ -291,8 +291,11 @@ offset = 0
         const visiblePositions = entry.positions.filter(
           pos => pos >= 0 && pos < truncated.visibleLength,
         )
-        const baseStyle = useColor && isSelected ? '\u001B[44m' : ''
-        const highlightStyle = useColor ? `${baseStyle}\u001B[1m\u001B[35m` : ''
+        const baseStyle
+          = useColor && isSelected ? '\u001B[48;5;237m\u001B[38;5;231m' : ''
+        const highlightStyle = useColor
+          ? `${baseStyle}\u001B[1m\u001B[38;5;214m`
+          : ''
         const resetStyle = useColor ? '\u001B[0m' : ''
         const resumeStyle = baseStyle ? `${resetStyle}${baseStyle}` : resetStyle
         let line = ''

@@ -17,10 +17,11 @@ interface HistoryCacheEntry {
   mtimeMs: number
   size: number
   entries: string[]
-  format: 'zsh' | 'bash' | 'fish'
+  format: HistoryFormat
 }
 
 const historyCache = new Map<string, HistoryCacheEntry>()
+type HistoryFormat = 'zsh' | 'bash' | 'fish'
 
 function isHistoryDisabled() {
   const raw = process.env.CCOMMAND_NO_HISTORY || process.env.NO_HISTORY || ''
@@ -50,28 +51,15 @@ async function writeLastHistory(command: string) {
   }
 }
 
-export async function pushHistory(command: string) {
-  if (isHistoryDisabled())
-return
+function detectShellName() {
+  const shellEnv = process.env.SHELL || '/bin/bash'
+  return shellEnv.split('/').pop() || 'bash'
+}
 
-  const colorize = await getColorize()
-  log(
-    colorize({
-      text: `${isZh ? '快捷指令' : 'shortcut command'}: ${command}`,
-      color: 'blue',
-      bold: true,
-    }),
-  )
-
-  // 检测当前shell类型
-  const currentShell = process.env.SHELL || '/bin/bash'
-  const shellName = currentShell.split('/').pop() || 'bash'
-
-  // 根据不同shell确定history文件路径和格式
-  let historyFile = ''
-  let historyFormat: 'zsh' | 'bash' | 'fish' = 'bash'
-
+function resolveHistoryTarget(shellName: string) {
   const home = process.env.HOME || os.homedir()
+  let historyFile = ''
+  let historyFormat: HistoryFormat = 'bash'
 
   switch (shellName) {
     case 'zsh':
@@ -87,10 +75,99 @@ return
       historyFormat = 'fish'
       break
     default:
-      // 默认使用bash格式
       historyFile = process.env.HISTFILE || path.join(home, '.bash_history')
       historyFormat = 'bash'
   }
+
+  return { historyFile, historyFormat }
+}
+
+function parseHistoryEntries(
+  content: string,
+  historyFormat: HistoryFormat,
+): string[] {
+  if (historyFormat === 'fish') {
+    const lines = content.split(/\r?\n/)
+    const blocks: string[] = []
+    let buffer: string[] = []
+    for (const line of lines) {
+      if (line.startsWith('- cmd: ')) {
+        if (buffer.length) {
+          blocks.push(buffer.join('\n'))
+          buffer = []
+        }
+        buffer.push(line)
+      }
+ else if (buffer.length) {
+        buffer.push(line)
+      }
+ else if (line.trim() !== '') {
+        blocks.push(line)
+      }
+    }
+    if (buffer.length)
+blocks.push(buffer.join('\n'))
+    return blocks.filter(Boolean)
+  }
+  if (historyFormat === 'zsh') {
+    return content
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean)
+  }
+
+  // bash: 需要保留时间戳行和命令行的配对
+  const lines = content.split(/\r?\n/)
+  const entries: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (line.startsWith('#')) {
+      const next = lines[i + 1] ?? ''
+      entries.push(`${line}\n${next}`)
+      i++
+    }
+ else if (line.trim() !== '') {
+      entries.push(line)
+    }
+  }
+  return entries
+}
+
+function extractHistoryCommand(
+  entry: string,
+  historyFormat: HistoryFormat,
+): string {
+  if (historyFormat === 'fish') {
+    const m = entry.split('\n')[0].match(/^- cmd: (.*)$/)
+    return (m ? m[1] : entry).trim()
+  }
+  if (historyFormat === 'zsh') {
+    const m = entry.match(/^[^;]*;(.+)$/)
+    return (m ? m[1] : entry).trim()
+  }
+
+  if (entry.startsWith('#')) {
+    const parts = entry.split(/\r?\n/)
+    return (parts[1] ?? parts[0]).trim()
+  }
+  return entry.trim()
+}
+
+export async function pushHistory(command: string) {
+  if (isHistoryDisabled())
+return
+
+  const colorize = await getColorize()
+  log(
+    colorize({
+      text: `${isZh ? '快捷指令' : 'shortcut command'}: ${command}`,
+      color: 'blue',
+      bold: true,
+    }),
+  )
+
+  const shellName = detectShellName()
+  const { historyFile, historyFormat } = resolveHistoryTarget(shellName)
 
   try {
     await writeLastHistory(command)
@@ -132,56 +209,6 @@ return
       }
     }
 
-    // 解析原有内容为条目数组（对 fish 使用块解析）
-    function parseEntries(content: string): string[] {
-      if (historyFormat === 'fish') {
-        const lines = content.split(/\r?\n/)
-        const blocks: string[] = []
-        let buffer: string[] = []
-        for (const line of lines) {
-          if (line.startsWith('- cmd: ')) {
-            if (buffer.length) {
-              blocks.push(buffer.join('\n'))
-              buffer = []
-            }
-            buffer.push(line)
-          }
- else if (buffer.length) {
-            buffer.push(line)
-          }
- else if (line.trim() !== '') {
-            blocks.push(line)
-          }
-        }
-        if (buffer.length)
-blocks.push(buffer.join('\n'))
-        return blocks.filter(Boolean)
-      }
- else if (historyFormat === 'zsh') {
-        return content
-          .split(/\r?\n/)
-          .map(l => l.trim())
-          .filter(Boolean)
-      }
- else {
-        // bash: 需要保留时间戳行和命令行的配对
-        const lines = content.split(/\r?\n/)
-        const entries: string[] = []
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]
-          if (line.startsWith('#')) {
-            const next = lines[i + 1] ?? ''
-            entries.push(`${line}\n${next}`)
-            i++
-          }
- else if (line.trim() !== '') {
-            entries.push(line)
-          }
-        }
-        return entries
-      }
-    }
-
     let entries: string[] = []
     const cached = historyCache.get(historyFile)
     if (
@@ -195,34 +222,15 @@ blocks.push(buffer.join('\n'))
     }
  else {
       const raw = await fsp.readFile(historyFile, 'utf8')
-      entries = parseEntries(raw)
-    }
-
-    // 提取条目对应的“命令字符串”，用于去重比较
-    function extractCommand(entry: string): string {
-      if (historyFormat === 'fish') {
-        const m = entry.split('\n')[0].match(/^- cmd: (.*)$/)
-        return (m ? m[1] : entry).trim()
-      }
- else if (historyFormat === 'zsh') {
-        const m = entry.match(/^[^;]*;(.+)$/)
-        return (m ? m[1] : entry).trim()
-      }
- else {
-        if (entry.startsWith('#')) {
-          const parts = entry.split(/\r?\n/)
-          return (parts[1] ?? parts[0]).trim()
-        }
-        return entry.trim()
-      }
+      entries = parseHistoryEntries(raw, historyFormat)
     }
 
     // 构建新的条目数组，去掉已有相同 command 的旧条目
     const newEntries: string[] = []
-    const newCmd = extractCommand(newEntry)
+    const newCmd = extractHistoryCommand(newEntry, historyFormat)
     let existingFishBlock: string | null = null
     for (const e of entries) {
-      const cmd = extractCommand(e)
+      const cmd = extractHistoryCommand(e, historyFormat)
       if (cmd === newCmd) {
         // For fish, keep the whole existing block (to preserve metadata) and update its timestamp later
         if (historyFormat === 'fish') {

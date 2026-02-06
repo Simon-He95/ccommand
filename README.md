@@ -20,6 +20,7 @@ ccommand -v # 查看版本 view version
 ccommand find # 查找workspace find workspace
 ccommand # 执行当前script Execute the current script
 ccommand --init # 自动检测当前shell并输出集成脚本 Auto-detect shell and output init script
+ccommand --install # 自动写入 shell 配置并生效（仅需执行一次）
 ccommand --init zsh # 输出shell集成脚本 eval "$(ccommand --init zsh)"
 CCOMMAND_BIN="node ./cli.mjs" ccommand --init zsh # 本地调试时指定二进制
 ccommand -help # 查看帮助 view help

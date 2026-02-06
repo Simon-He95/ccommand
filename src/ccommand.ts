@@ -15,6 +15,7 @@ import { findAndExecuteFile, handleFileExecution } from './file-execution.js'
 import { pushHistory } from './history.js'
 import { readMakefile } from './makefile.js'
 import { ensurePicker, pickFromList } from './picker.js'
+import { ensureShellInitInstalled } from './shell-install.js'
 import {
   formatShellCommand,
   fuzzyMatch,
@@ -50,7 +51,26 @@ export async function ccommand(
   const successText = isZh ? '运行成功' : 'run successfully'
   const failedText = isZh ? '运行失败' : 'run error'
   const argv = normalizeArgv(userParams)
-  if (argv[0] === 'init' || argv[0] === '--init') {
+  const rawArg0 = argv[0] || ''
+  const isInitCommand = rawArg0 === 'init' || rawArg0 === '--init'
+  const isHelpCommand = rawArg0 === '-h' || rawArg0 === '--help'
+  const isVersionCommand = rawArg0 === '-v' || rawArg0 === '--version'
+  const isInstallCommand = rawArg0 === '--install' || rawArg0 === 'install'
+  if (isInstallCommand) {
+    await ensureShellInitInstalled({
+      force: true,
+      quiet: false,
+      bin: process.env.CCOMMAND_BIN || 'ccommand',
+    })
+    return
+  }
+  if (!isInitCommand && !isHelpCommand && !isVersionCommand) {
+    await ensureShellInitInstalled({
+      quiet: true,
+      bin: process.env.CCOMMAND_BIN || 'ccommand',
+    })
+  }
+  if (isInitCommand) {
     const shellFromArg = argv[1]
     const binFromArg = argv[2]
     const binFromEnv = process.env.CCOMMAND_BIN
@@ -73,7 +93,6 @@ export async function ccommand(
         '  cmd=(' + '${=bin}' + ')',
         '  command "' + '${cmd[@]}' + '" "$@"',
         '}',
-        '',
         '__ccommand_sync_history() {',
         '  local history_disable=${CCOMMAND_NO_HISTORY:-${NO_HISTORY:-""}}',
         '  local history_disable_lower=${history_disable:l}',
@@ -97,7 +116,7 @@ export async function ccommand(
         '  fi',
         '  __CCOMMAND_HISTORY_HINT_TS=$hint_ts',
         '  fc -R',
-        '  if [[ $hint_cmd != pfind* ]]; then',
+        '  if [[ $hint_cmd != pfind* && $hint_cmd != prun* ]]; then',
         '    return',
         '  fi',
         '  local last_line',
@@ -132,7 +151,6 @@ export async function ccommand(
         '  read -r -a cmd <<< "$bin"',
         '  command "' + '${cmd[@]}' + '" "$@"',
         '}',
-        '',
         '__ccommand_sync_history() {',
         '  local history_disable=${CCOMMAND_NO_HISTORY:-${NO_HISTORY:-""}}',
         '  local history_disable_lower',
@@ -156,7 +174,7 @@ export async function ccommand(
         '    return',
         '  fi',
         '  __CCOMMAND_HISTORY_HINT_TS=$hint_ts',
-        '  if [[ $hint_cmd != pfind* ]]; then',
+        '  if [[ $hint_cmd != pfind* && $hint_cmd != prun* ]]; then',
         '    return',
         '  fi',
         '  history -n',
@@ -211,7 +229,7 @@ export async function ccommand(
         '    if test -f "$history_hint"',
         '      set -l last_cmd (string trim -- (cat "$history_hint"))',
         '      set -l last_cmd (string replace -r "^[0-9]+\\t" "" -- "$last_cmd")',
-        '      if string match -q "pfind*" -- "$last_cmd"',
+        '      if string match -q "pfind*" -- "$last_cmd"; or string match -q "prun*" -- "$last_cmd"',
         '        set -l last_hist (history --max=1)',
         '        if test "$last_hist" != "$last_cmd"',
         '          history add -- "$last_cmd"',

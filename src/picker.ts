@@ -4,6 +4,9 @@ import readline from 'node:readline'
 import { cancelCode, isZh } from './constants.js'
 
 const boundaryChars = new Set(['-', '_', ' ', '.', '/', '\\', ':'])
+const workspacePathSeparator = '  -  '
+const workspacePathTruncationPrefix = '...'
+const scriptDetailSeparator = ': '
 
 function isLower(ch: string) {
   return ch >= 'a' && ch <= 'z'
@@ -172,6 +175,68 @@ return text
   return out
 }
 
+function splitWorkspaceItem(item: string) {
+  const sepIndex = item.indexOf(workspacePathSeparator)
+  if (sepIndex === -1)
+return null
+  const pathStart = sepIndex + workspacePathSeparator.length
+  return {
+    name: item.slice(0, sepIndex),
+    sep: workspacePathSeparator,
+    path: item.slice(pathStart),
+    sepIndex,
+    pathStart,
+  }
+}
+
+function splitScriptItem(item: string) {
+  const sepIndex = item.indexOf(scriptDetailSeparator)
+  if (sepIndex === -1)
+return null
+  const detailStart = sepIndex + scriptDetailSeparator.length
+  return {
+    name: item.slice(0, sepIndex),
+    sep: scriptDetailSeparator,
+    detail: item.slice(detailStart),
+    sepIndex,
+    detailStart,
+  }
+}
+
+function findPathBoundary(text: string, startIndex: number) {
+  const forwardSlash = text.indexOf('/', startIndex)
+  const backSlash = text.indexOf('\\', startIndex)
+  if (forwardSlash === -1)
+return backSlash
+  if (backSlash === -1)
+return forwardSlash
+  return Math.min(forwardSlash, backSlash)
+}
+
+function truncateWorkspacePath(pathText: string, maxLen: number) {
+  if (maxLen <= 0)
+    return { text: '', startIndex: pathText.length, prefixLen: 0 }
+  if (pathText.length <= maxLen)
+    return { text: pathText, startIndex: 0, prefixLen: 0 }
+  if (maxLen <= workspacePathTruncationPrefix.length) {
+    const startIndex = Math.max(0, pathText.length - maxLen)
+    return { text: pathText.slice(startIndex), startIndex, prefixLen: 0 }
+  }
+
+  const tailLen = maxLen - workspacePathTruncationPrefix.length
+  let startIndex = Math.max(0, pathText.length - tailLen)
+  const boundaryIndex = findPathBoundary(pathText, startIndex)
+  if (boundaryIndex !== -1 && boundaryIndex < pathText.length - 1) {
+    startIndex = boundaryIndex + 1
+  }
+
+  return {
+    text: `${workspacePathTruncationPrefix}${pathText.slice(startIndex)}`,
+    startIndex,
+    prefixLen: workspacePathTruncationPrefix.length,
+  }
+}
+
 function dimLine(text: string, useColor: boolean) {
   if (!useColor)
 return text
@@ -287,10 +352,6 @@ offset = 0
         const maxColumns = output.columns
           ? Math.max(0, output.columns - prefix.length)
           : undefined
-        const truncated = truncateItem(entry.item, maxColumns)
-        const visiblePositions = entry.positions.filter(
-          pos => pos >= 0 && pos < truncated.visibleLength,
-        )
         const baseStyle
           = useColor && isSelected ? '\u001B[48;5;237m\u001B[38;5;231m' : ''
         const highlightStyle = useColor
@@ -298,17 +359,165 @@ offset = 0
           : ''
         const resetStyle = useColor ? '\u001B[0m' : ''
         const resumeStyle = baseStyle ? `${resetStyle}${baseStyle}` : resetStyle
+
+        const renderStandardItem = () => {
+          const truncated = truncateItem(entry.item, maxColumns)
+          const visiblePositions = entry.positions.filter(
+            pos => pos >= 0 && pos < truncated.visibleLength,
+          )
+          let line = ''
+          if (baseStyle)
+line += baseStyle
+          line += prefix
+          line += applyHighlight(
+            truncated.text,
+            visiblePositions,
+            highlightStyle,
+            resumeStyle,
+          )
+          if (baseStyle)
+line += resetStyle
+          lines.push(line)
+        }
+
+        const workspaceParts = splitWorkspaceItem(entry.item)
+        if (!workspaceParts) {
+          const scriptParts = splitScriptItem(entry.item)
+          if (!scriptParts) {
+            renderStandardItem()
+            return
+          }
+
+          const scriptFixedLen
+            = scriptParts.name.length + scriptParts.sep.length
+          if (maxColumns !== undefined && scriptFixedLen >= maxColumns) {
+            renderStandardItem()
+            return
+          }
+
+          const maxDetailLen
+            = maxColumns === undefined
+              ? scriptParts.detail.length
+              : maxColumns - scriptFixedLen
+          const truncatedDetail = truncateItem(scriptParts.detail, maxDetailLen)
+
+          const namePositions = entry.positions.filter(
+            pos => pos >= 0 && pos < scriptParts.sepIndex,
+          )
+          const sepPositions = entry.positions
+            .filter(
+              pos =>
+                pos >= scriptParts.sepIndex && pos < scriptParts.detailStart,
+            )
+            .map(pos => pos - scriptParts.sepIndex)
+          const detailPositions = entry.positions
+            .filter(pos => pos >= scriptParts.detailStart)
+            .map(pos => pos - scriptParts.detailStart)
+            .filter(pos => pos >= 0 && pos < truncatedDetail.visibleLength)
+
+          const dimStyle = useColor ? '\u001B[2m' : ''
+          const dimResume = useColor
+            ? baseStyle
+              ? `${resetStyle}${baseStyle}${dimStyle}`
+              : `${resetStyle}${dimStyle}`
+            : ''
+
+          let line = ''
+          if (baseStyle)
+line += baseStyle
+          line += prefix
+          line += applyHighlight(
+            scriptParts.name,
+            namePositions,
+            highlightStyle,
+            resumeStyle,
+          )
+          line += applyHighlight(
+            scriptParts.sep,
+            sepPositions,
+            highlightStyle,
+            resumeStyle,
+          )
+          if (dimStyle)
+line += dimStyle
+          line += applyHighlight(
+            truncatedDetail.text,
+            detailPositions,
+            highlightStyle,
+            dimResume,
+          )
+          if (useColor && (baseStyle || dimStyle))
+line += resetStyle
+          lines.push(line)
+          return
+        }
+
+        const fixedLen = workspaceParts.name.length + workspaceParts.sep.length
+        if (maxColumns !== undefined && fixedLen >= maxColumns) {
+          renderStandardItem()
+          return
+        }
+
+        const maxPathLen
+          = maxColumns === undefined
+            ? workspaceParts.path.length
+            : maxColumns - fixedLen
+        const truncatedPath = truncateWorkspacePath(
+          workspaceParts.path,
+          maxPathLen,
+        )
+
+        const namePositions = entry.positions.filter(
+          pos => pos >= 0 && pos < workspaceParts.sepIndex,
+        )
+        const sepPositions = entry.positions
+          .filter(
+            pos =>
+              pos >= workspaceParts.sepIndex && pos < workspaceParts.pathStart,
+          )
+          .map(pos => pos - workspaceParts.sepIndex)
+        const rawPathPositions = entry.positions
+          .filter(pos => pos >= workspaceParts.pathStart)
+          .map(pos => pos - workspaceParts.pathStart)
+        const pathPositions = rawPathPositions
+          .filter(pos => pos >= truncatedPath.startIndex)
+          .map(
+            pos => pos - truncatedPath.startIndex + truncatedPath.prefixLen,
+          )
+          .filter(pos => pos >= 0 && pos < truncatedPath.text.length)
+
+        const dimStyle = useColor ? '\u001B[2m' : ''
+        const dimResume = useColor
+          ? baseStyle
+            ? `${resetStyle}${baseStyle}${dimStyle}`
+            : `${resetStyle}${dimStyle}`
+          : ''
+
         let line = ''
         if (baseStyle)
 line += baseStyle
         line += prefix
         line += applyHighlight(
-          truncated.text,
-          visiblePositions,
+          workspaceParts.name,
+          namePositions,
           highlightStyle,
           resumeStyle,
         )
-        if (baseStyle)
+        line += applyHighlight(
+          workspaceParts.sep,
+          sepPositions,
+          highlightStyle,
+          resumeStyle,
+        )
+        if (dimStyle)
+line += dimStyle
+        line += applyHighlight(
+          truncatedPath.text,
+          pathPositions,
+          highlightStyle,
+          dimResume,
+        )
+        if (useColor && (baseStyle || dimStyle))
 line += resetStyle
         lines.push(line)
       })

@@ -44,11 +44,17 @@ function needPrefixCheck(argv0: string, prefixArgs: string[], argv: string[]) {
 
 function formatWorkspaceOptions(workspaceNames: string[]) {
   const workspacePaths = getWorkspacePaths()
+  const maxNameLength = workspaceNames.reduce(
+    (max, name) => Math.max(max, name.length),
+    0,
+  )
+  const nameWidth = Math.min(32, maxNameLength)
   const options = workspaceNames.map((name) => {
     const relPath = workspacePaths[name]
     if (!relPath)
 return name
-    return `${name}  -  ${relPath}`
+    const paddedName = nameWidth ? name.padEnd(nameWidth) : name
+    return `${paddedName}  -  ${relPath}`
   })
   const optionToName = new Map(
     options.map((option, index) => [option, workspaceNames[index]]),

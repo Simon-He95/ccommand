@@ -23,7 +23,7 @@ import {
   normalizeArgv,
   shellEscape,
 } from './utils.js'
-import { getData, getWorkspaceNames } from './workspace.js'
+import { getData, getWorkspaceNames, getWorkspacePaths } from './workspace.js'
 
 // Then wrap your getPkg calls
 const memoizedGetPkg = memorizeFn(getPkg)
@@ -40,6 +40,20 @@ function needPrefixCheck(argv0: string, prefixArgs: string[], argv: string[]) {
     return Boolean(argv[1] && prefixArgs.length)
   }
   return Boolean(argv[1] && prefixArgs.length)
+}
+
+function formatWorkspaceOptions(workspaceNames: string[]) {
+  const workspacePaths = getWorkspacePaths()
+  const options = workspaceNames.map((name) => {
+    const relPath = workspacePaths[name]
+    if (!relPath)
+return name
+    return `${name}  -  ${relPath}`
+  })
+  const optionToName = new Map(
+    options.map((option, index) => [option, workspaceNames[index]]),
+  )
+  return { options, optionToName }
 }
 
 export async function ccommand(
@@ -409,9 +423,15 @@ return cancel()
   if (argv[0] === 'find') {
     if (fuzzyWorkspace) {
       await getData(termStart as any)
-      dirname = getWorkspaceNames().filter(name =>
-        name.includes(fuzzyWorkspace),
-      )[0]
+      const workspaceNames = getWorkspaceNames()
+      const workspacePaths = getWorkspacePaths()
+      dirname
+        = workspaceNames.find(
+          name =>
+            name.includes(fuzzyWorkspace)
+            || (workspacePaths[name]
+              && workspacePaths[name].includes(fuzzyWorkspace)),
+        ) || ''
     }
  else {
       if (termStart === 'yarn') {
@@ -430,15 +450,14 @@ return cancel()
             }),
           )
         }
-        const { result: choose, status } = await pickFromList(
-          getWorkspaceNames(),
-          {
-            placeholder: isZh
-              ? '🤔请选择一个要执行的目录'
-              : 'Please select a directory to execute',
-          },
-        )
-        dirname = choose
+        const workspaceNames = getWorkspaceNames()
+        const { options, optionToName } = formatWorkspaceOptions(workspaceNames)
+        const { result: choose, status } = await pickFromList(options, {
+          placeholder: isZh
+            ? '🤔请选择一个要执行的目录'
+            : 'Please select a directory to execute',
+        })
+        dirname = optionToName.get(choose) || choose
         if (status === cancelCode)
 return cancel()
       }
@@ -464,17 +483,16 @@ return cancel()
             }),
           )
         }
-        const { result: choose, status } = await pickFromList(
-          getWorkspaceNames(),
-          {
-            placeholder: isZh
-              ? '🤔请选择一个要执行的目录'
-              : 'Please select a directory to execute',
-          },
-        )
+        const workspaceNames = getWorkspaceNames()
+        const { options, optionToName } = formatWorkspaceOptions(workspaceNames)
+        const { result: choose, status } = await pickFromList(options, {
+          placeholder: isZh
+            ? '🤔请选择一个要执行的目录'
+            : 'Please select a directory to execute',
+        })
         if (status === cancelCode)
 return cancel()
-        dirname = choose.trim()
+        dirname = (optionToName.get(choose) || choose).trim()
       }
       // else {
       //   // 判断 rust 环境 ./folder/Cargo.toml 如果存在则，提供 folder_name 作为选择去执行

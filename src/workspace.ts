@@ -9,11 +9,16 @@ import { getPkg } from 'lazy-js-utils/node'
 let YAML: any = null
 
 let workspaceNamesInternal: string[] = []
+let workspacePathsInternal: Record<string, string> = {}
 let cacheData: Record<string, Record<string, string>> | null = null
 let lastWorkspaceMtime: number | null = null
 
 export function getWorkspaceNames() {
   return workspaceNamesInternal
+}
+
+export function getWorkspacePaths() {
+  return workspacePathsInternal
 }
 
 export async function readWorkspaceFile(
@@ -79,11 +84,12 @@ return _workspace
   }
 }
 
-export async function readGlob(
-  packages: string[],
-): Promise<Record<string, Record<string, string>>> {
+export async function readGlob(packages: string[]): Promise<{
+  data: Record<string, Record<string, string>>
+  paths: Record<string, string>
+}> {
   if (!packages.length)
-return {}
+return { data: {}, paths: {} }
 
   const entries = await fg(
     packages.map(v => `${v}/package.json`),
@@ -100,7 +106,8 @@ return {}
         if (!pkg)
 return null
         const { name, scripts } = pkg
-        return { name, scripts }
+        const relPath = path.relative(process.cwd(), path.dirname(v)) || '.'
+        return { name, scripts, relPath }
       }
  catch {
         return null
@@ -108,18 +115,29 @@ return null
     }),
   )
 
-  return results.reduce((result, pkg) => {
-    if (!pkg || !pkg.name || !pkg.scripts)
+  return results.reduce(
+    (result, pkg) => {
+      if (!pkg || !pkg.name || !pkg.scripts)
 return result
 
-    result[pkg.name] = Object.keys(pkg.scripts).reduce((scripts, key) => {
-      if (!key.startsWith('//'))
+      result.data[pkg.name] = Object.keys(pkg.scripts).reduce(
+        (scripts, key) => {
+          if (!key.startsWith('//'))
 scripts[key] = pkg.scripts![key]
-      return scripts
-    }, {} as Record<string, string>)
+          return scripts
+        },
+        {} as Record<string, string>,
+      )
 
-    return result
-  }, {} as Record<string, Record<string, string>>)
+      result.paths[pkg.name] = pkg.relPath
+
+      return result
+    },
+    { data: {}, paths: {} } as {
+      data: Record<string, Record<string, string>>
+      paths: Record<string, string>
+    },
+  )
 }
 
 export async function loadWorkspaceData(
@@ -144,7 +162,9 @@ export async function loadWorkspaceData(
   const workspace = await readWorkspaceFile(type)
   const packages = await parseWorkspacePackages(type, workspace)
 
-  cacheData = (await readGlob(packages)) || {}
+  const { data, paths } = await readGlob(packages)
+  cacheData = data
+  workspacePathsInternal = paths
   workspaceNamesInternal = Object.keys(cacheData).filter(
     key => cacheData && cacheData[key] && Object.keys(cacheData[key]).length,
   )
@@ -155,6 +175,7 @@ export async function loadWorkspaceData(
 export function clearWorkspaceCache() {
   cacheData = null
   workspaceNamesInternal = []
+  workspacePathsInternal = {}
   lastWorkspaceMtime = null
 }
 

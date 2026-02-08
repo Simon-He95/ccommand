@@ -278,8 +278,8 @@ return { status: cancelCode, result: '' }
     placeholder || (isZh ? '请选择一个选项' : 'Select')
   ).trim()
   const helpText = isZh
-    ? '上/下选择 左/右移动 Enter确认 Esc取消'
-    : '↑/↓ Move ←/→ Cursor Enter select Esc cancel'
+    ? '上/下选择 左/右移动 Enter确认 Esc清空/取消'
+    : '↑/↓ Move ←/→ Cursor Enter select Esc clear/cancel'
 
   let query = ''
   let cursor = 0
@@ -291,10 +291,11 @@ return { status: cancelCode, result: '' }
 
   const cursorBlinkMs = 500
 
-  const maxVisible = Math.max(
-    4,
-    Math.min(maxItems || 10, (output.rows || 24) - 5),
-  )
+  let maxVisible = 0
+  const updateMaxVisible = () => {
+    maxVisible = Math.max(4, Math.min(maxItems || 10, (output.rows || 24) - 5))
+  }
+  updateMaxVisible()
 
   let ranked = rankItems(items, query)
 
@@ -341,7 +342,9 @@ offset = 0
     lines.push(truncateLine(inputLine, output.columns))
 
     if (!ranked.length) {
-      lines.push(isZh ? '  (无匹配)' : '  (no matches)')
+      lines.push(
+        truncateLine(isZh ? '  (无匹配)' : '  (no matches)', output.columns),
+      )
     }
  else {
       updateOffset()
@@ -525,7 +528,12 @@ line += resetStyle
 
     lines.push('')
     const meta = ranked.length ? `(${cursor + 1}/${ranked.length})` : ''
-    lines.push(dimLine(`  ${helpText} ${meta}`.trimEnd(), useColor))
+    lines.push(
+      dimLine(
+        truncateLine(`  ${helpText} ${meta}`.trimEnd(), output.columns),
+        useColor,
+      ),
+    )
 
     output.write(lines.join('\n'))
     renderedLines = lines.length
@@ -576,6 +584,8 @@ return
 
     function cleanup() {
       input.removeListener('data', onData)
+      if (output.isTTY)
+output.off('resize', onResize)
       if (input.isTTY)
 input.setRawMode(false)
       input.pause()
@@ -600,8 +610,16 @@ return finish(cancelCode, '')
       }
 
       if (str.startsWith('\u001B')) {
-        if (str === '\u001B')
-return finish(cancelCode, '')
+        if (str === '\u001B') {
+          if (query.length) {
+            query = ''
+            inputCursor = 0
+            updateRanking()
+            render()
+            return
+          }
+          return finish(cancelCode, '')
+        }
         if (str === '\u001B[A') {
           if (ranked.length) {
             cursor = cursor > 0 ? cursor - 1 : ranked.length - 1
@@ -682,9 +700,17 @@ printable += ch
 input.setRawMode(true)
     input.resume()
     input.on('data', onData)
+    if (output.isTTY) {
+      output.on('resize', onResize)
+    }
 
     hideCursor()
     startBlink()
     render()
+    function onResize() {
+      updateMaxVisible()
+      updateOffset()
+      render()
+    }
   })
 }

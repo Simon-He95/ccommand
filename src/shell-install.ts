@@ -37,9 +37,19 @@ return path.join(home, '.bashrc')
 
 function buildInstallLine(shellName: string, bin = 'ccommand') {
   const binCommand = bin || 'ccommand'
-  if (shellName === 'fish')
-return `eval (${binCommand} --init fish)`
-  return `eval "$(${binCommand} --init ${shellName})"`
+  const binCheck = binCommand.trim().split(/\s+/)[0] || 'ccommand'
+  if (shellName === 'fish') {
+    return [
+      `if command -q ${binCheck}`,
+      `  eval (${binCommand} --init fish)`,
+      'end',
+    ].join('\n')
+}
+  return [
+    `if command -v ${binCheck} >/dev/null 2>&1; then`,
+    `  eval "$(${binCommand} --init ${shellName})"`,
+    'fi',
+  ].join('\n')
 }
 
 function hasInstallLine(content: string) {

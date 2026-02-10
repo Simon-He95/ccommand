@@ -46,6 +46,9 @@ export async function runScript(
     )
   }
 
+  const historyCommand = formatShellCommand(['prun', script, ...prefixArgs])
+  await pushHistoryFn(historyCommand)
+
   const buildRunCommand = () => {
     switch (termStart) {
       case 'npm': {
@@ -174,8 +177,6 @@ args.push('--')
     }
   }
   if (status === 0) {
-    const historyCommand = formatShellCommand(['prun', script, ...prefixArgs])
-    await pushHistoryFn(historyCommand)
     return console.log(
       colorizeFn({
         color: 'green',

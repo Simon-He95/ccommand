@@ -689,13 +689,12 @@ return cancel()
   })
   const _command = computedCommand
   val = computedVal
+  if (argv[0] === 'find')
+await pushHistory(historyText)
   const { status, result = '' } = await jsShell(_command, {
     errorExit: false,
     stdio: 'inherit',
   })
-
-  if (argv[0] === 'find')
-await pushHistory(historyText)
 
   // todo: 当 stdio 默认是 inherit 时, 会直接输出到控制台, 但是这样会导致无法捕获到错误
   // const { status, result = '' } = await useNodeWorker({

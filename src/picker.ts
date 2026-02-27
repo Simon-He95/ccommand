@@ -350,10 +350,6 @@ return { status: cancelCode, result: '' }
   let inputCursor = 0
   let rendered = [] as string[]
   let renderedColumns: number | undefined
-  let cursorVisible = true
-  let blinkTimer: ReturnType<typeof setInterval> | null = null
-
-  const cursorBlinkMs = 500
 
   let maxVisible = 0
   const updateMaxVisible = () => {
@@ -440,7 +436,7 @@ offset = 0
         lines.push(`${promptPrefix} (${pathText})`)
       }
     }
-    const cursorMark = cursorVisible ? '|' : ' '
+    const cursorMark = '|'
     const before = query.slice(0, inputCursor)
     const after = query.slice(inputCursor)
     const inputLine = `  > ${before}${cursorMark}${after}`
@@ -645,23 +641,6 @@ line += resetStyle
     renderedColumns = output.columns
   }
 
-  const startBlink = () => {
-    if (blinkTimer)
-return
-    blinkTimer = setInterval(() => {
-      cursorVisible = !cursorVisible
-      render()
-    }, cursorBlinkMs)
-  }
-
-  const stopBlink = () => {
-    if (!blinkTimer)
-return
-    clearInterval(blinkTimer)
-    blinkTimer = null
-    cursorVisible = true
-  }
-
   const updateRanking = () => {
     ranked = rankItems(items, query)
     // Reset selection to the first item after query changes.
@@ -695,13 +674,11 @@ output.off('resize', onResize)
       if (input.isTTY)
 input.setRawMode(false)
       input.pause()
-      stopBlink()
       clearRendered()
       showCursor()
     }
 
     function onData(data: Buffer) {
-      cursorVisible = true
       const str = data.toString('utf8')
 
       if (str === '\u0003' || str === '\u0004')
@@ -811,7 +788,6 @@ input.setRawMode(true)
     }
 
     hideCursor()
-    startBlink()
     render()
     function onResize() {
       updateMaxVisible()

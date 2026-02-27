@@ -62,6 +62,13 @@ return name
   return { options, optionToName }
 }
 
+function getScriptScopePath(dirname: string) {
+  if (!dirname || dirname === '.')
+return '.'
+  const workspacePath = getWorkspacePaths()[dirname]
+  return workspacePath || dirname
+}
+
 export async function ccommand(
   userParams: string | string[] = process.argv.slice(2),
 ) {
@@ -646,7 +653,9 @@ return
         }),
       )
     }
+    const scriptScopePath = getScriptScopePath(dirname)
     const { result, status } = await pickFromList(options, {
+      promptPath: scriptScopePath,
       placeholder: isZh
         ? '🤔请选择一个要执行的指令'
         : 'Please select a command to run',

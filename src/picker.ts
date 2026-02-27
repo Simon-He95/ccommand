@@ -1,12 +1,70 @@
 import type { Buffer } from 'node:buffer'
 import process from 'node:process'
 import readline from 'node:readline'
+import { stripVTControlCharacters } from 'node:util'
 import { cancelCode, isZh } from './constants.js'
 
 const boundaryChars = new Set(['-', '_', ' ', '.', '/', '\\', ':'])
 const workspacePathSeparator = '  -  '
 const workspacePathTruncationPrefix = '...'
 const scriptDetailSeparator = ': '
+
+function isFullWidthCodePoint(code: number) {
+  return (
+    code >= 0x1100
+    && (code <= 0x115F
+      || code === 0x2329
+      || code === 0x232A
+      || (code >= 0x2E80 && code <= 0x3247 && code !== 0x303F)
+      || (code >= 0x3250 && code <= 0x4DBF)
+      || (code >= 0x4E00 && code <= 0xA4C6)
+      || (code >= 0xA960 && code <= 0xA97C)
+      || (code >= 0xAC00 && code <= 0xD7A3)
+      || (code >= 0xF900 && code <= 0xFAFF)
+      || (code >= 0xFE10 && code <= 0xFE19)
+      || (code >= 0xFE30 && code <= 0xFE6B)
+      || (code >= 0xFF01 && code <= 0xFF60)
+      || (code >= 0xFFE0 && code <= 0xFFE6)
+      || (code >= 0x1B000 && code <= 0x1B001)
+      || (code >= 0x1F200 && code <= 0x1F251)
+      || (code >= 0x20000 && code <= 0x3FFFD))
+  )
+}
+
+function charDisplayWidth(ch: string) {
+  const code = ch.codePointAt(0)
+  if (code === undefined)
+return 0
+
+  if (code <= 0x1F || (code >= 0x7F && code <= 0x9F))
+return 0
+
+  if (
+    (code >= 0x0300 && code <= 0x036F)
+    || (code >= 0x1AB0 && code <= 0x1AFF)
+    || (code >= 0x1DC0 && code <= 0x1DFF)
+    || (code >= 0x20D0 && code <= 0x20FF)
+    || (code >= 0xFE20 && code <= 0xFE2F)
+  ) {
+    return 0
+  }
+
+  return isFullWidthCodePoint(code) ? 2 : 1
+}
+
+function stringDisplayWidth(text: string) {
+  let width = 0
+  for (const ch of text) width += charDisplayWidth(ch)
+  return width
+}
+
+function countWrappedRows(line: string, columns: number | undefined) {
+  if (!columns || columns <= 0)
+return 1
+  const visible = stripVTControlCharacters(line)
+  const width = stringDisplayWidth(visible)
+  return Math.max(1, Math.ceil(Math.max(width, 1) / columns))
+}
 
 function isLower(ch: string) {
   return ch >= 'a' && ch <= 'z'
@@ -266,7 +324,11 @@ return false
 
 export async function pickFromList(
   items: string[],
-  { placeholder, maxItems }: { placeholder?: string, maxItems?: number } = {},
+  {
+    placeholder,
+    maxItems,
+    promptPath,
+  }: { placeholder?: string, maxItems?: number, promptPath?: string } = {},
 ): Promise<{ status: number, result: string }> {
   if (!isInteractiveTty())
 return { status: cancelCode, result: '' }
@@ -277,6 +339,7 @@ return { status: cancelCode, result: '' }
   const promptLabel = (
     placeholder || (isZh ? '请选择一个选项' : 'Select')
   ).trim()
+  const promptPathLabel = (promptPath || '').trim()
   const helpText = isZh
     ? '上/下选择 左/右移动 Enter确认 Esc清空/取消'
     : '↑/↓ Move ←/→ Cursor Enter select Esc clear/cancel'
@@ -285,7 +348,8 @@ return { status: cancelCode, result: '' }
   let cursor = 0
   let offset = 0
   let inputCursor = 0
-  let renderedLines = 0
+  let rendered = [] as string[]
+  let renderedColumns: number | undefined
   let cursorVisible = true
   let blinkTimer: ReturnType<typeof setInterval> | null = null
 
@@ -309,15 +373,21 @@ output.write('\u001B[?25h')
   }
 
   const clearRendered = () => {
-    if (!renderedLines)
+    if (!rendered.length)
 return
-    for (let i = 0; i < renderedLines; i++) {
+    const columnsForClear = renderedColumns
+    const rows = rendered.reduce(
+      (sum, line) => sum + countWrappedRows(line, columnsForClear),
+      0,
+    )
+    for (let i = 0; i < rows; i++) {
       readline.clearLine(output, 0)
-      if (i < renderedLines - 1)
+      if (i < rows - 1)
 readline.moveCursor(output, 0, -1)
     }
     readline.cursorTo(output, 0)
-    renderedLines = 0
+    rendered = []
+    renderedColumns = undefined
   }
 
   const updateOffset = () => {
@@ -333,8 +403,43 @@ offset = 0
     clearRendered()
 
     const lines: string[] = []
-    const prompt = `? ${promptLabel}`
-    lines.push(dimLine(truncateLine(prompt, output.columns), useColor))
+    const promptPrefix = `? ${promptLabel}`
+    if (!promptPathLabel) {
+      lines.push(dimLine(truncateLine(promptPrefix, output.columns), useColor))
+    }
+ else {
+      let pathText = promptPathLabel
+      const maxColumns = output.columns
+      const fixedLen = promptPrefix.length + 3 // " (path)"
+      let shouldRenderPath = true
+      if (maxColumns !== undefined && fixedLen > maxColumns) {
+        lines.push(dimLine(truncateLine(promptPrefix, maxColumns), useColor))
+        shouldRenderPath = false
+      }
+ else if (maxColumns !== undefined) {
+        const maxPathLen = maxColumns - fixedLen
+        if (pathText.length > maxPathLen) {
+          pathText = truncateWorkspacePath(pathText, maxPathLen).text
+        }
+      }
+
+      if (shouldRenderPath && useColor) {
+        const resetStyle = '\u001B[0m'
+        const markStyle = '\u001B[38;5;110m'
+        const labelStyle = '\u001B[38;5;250m'
+        const bracketStyle = '\u001B[38;5;244m'
+        const pathStyle
+          = pathText === '.'
+            ? '\u001B[1m\u001B[38;5;150m'
+            : '\u001B[1m\u001B[38;5;81m'
+        lines.push(
+          `${markStyle}?${resetStyle} ${labelStyle}${promptLabel}${resetStyle} ${bracketStyle}(${resetStyle}${pathStyle}${pathText}${resetStyle}${bracketStyle})${resetStyle}`,
+        )
+      }
+ else if (shouldRenderPath) {
+        lines.push(`${promptPrefix} (${pathText})`)
+      }
+    }
     const cursorMark = cursorVisible ? '|' : ' '
     const before = query.slice(0, inputCursor)
     const after = query.slice(inputCursor)
@@ -536,7 +641,8 @@ line += resetStyle
     )
 
     output.write(lines.join('\n'))
-    renderedLines = lines.length
+    rendered = [...lines]
+    renderedColumns = output.columns
   }
 
   const startBlink = () => {

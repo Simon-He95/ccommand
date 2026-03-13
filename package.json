@@ -59,7 +59,7 @@
     "@types/node": "^17.0.45",
     "bumpp": "^8.2.1",
     "eslint": "^9.39.3",
-    "lint-staged": "^13.3.0",
+    "lint-staged": "^16.0.0",
     "prettier": "^2.8.8",
     "tsdown": "^0.20.3",
     "tsx": "^3.14.0",

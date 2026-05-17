@@ -44,7 +44,7 @@
     "ptest": "pnpm run -C playground test -u",
     "preview": "pnpm run -C playground preview",
     "test:e2e": "cypress open",
-    "prepublishOnly": "nr build",
+    "prepublishOnly": "pnpm build",
     "release": "bumpp --commit --tag --push && git push origin --tags -f && npm publish"
   },
   "dependencies": {

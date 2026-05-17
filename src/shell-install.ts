@@ -13,7 +13,7 @@ function isAutoInstallDisabled() {
   return AUTO_INSTALL_DISABLE_FLAGS.has(raw.toLowerCase())
 }
 
-function detectShellName() {
+export function detectShellName() {
   const shellEnv = process.env.SHELL || ''
   return (
     (process.env.FISH_VERSION && 'fish')
@@ -24,7 +24,7 @@ function detectShellName() {
   )
 }
 
-function resolveRcPath(shellName: string) {
+export function resolveRcPath(shellName: string) {
   const home = process.env.HOME || os.homedir()
   if (shellName === 'fish')
     return path.join(home, '.config', 'fish', 'config.fish')
@@ -52,7 +52,7 @@ function buildInstallLine(shellName: string, bin = 'ccommand') {
   ].join('\n')
 }
 
-function hasInstallLine(content: string) {
+export function hasInstallLine(content: string) {
   return (
     content.includes('# ccommand init') || content.includes('ccommand --init')
   )

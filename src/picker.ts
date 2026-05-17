@@ -58,6 +58,24 @@ function stringDisplayWidth(text: string) {
   return width
 }
 
+function truncateTextByColumns(text: string, maxColumns: number) {
+  let width = 0
+  let end = 0
+  for (let i = 0; i < text.length;) {
+    const code = text.codePointAt(i)
+    if (code === undefined)
+break
+    const ch = String.fromCodePoint(code)
+    const nextWidth = width + charDisplayWidth(ch)
+    if (nextWidth > maxColumns)
+break
+    width = nextWidth
+    i += ch.length
+    end = i
+  }
+  return { text: text.slice(0, end), visibleLength: end }
+}
+
 function countWrappedRows(line: string, columns: number | undefined) {
   if (!columns || columns <= 0)
 return 1
@@ -193,22 +211,25 @@ return b.score - a.score
 function truncateLine(text: string, maxColumns: number | undefined) {
   if (!maxColumns || maxColumns <= 0)
 return text
-  if (text.length <= maxColumns)
+  if (stringDisplayWidth(text) <= maxColumns)
 return text
   if (maxColumns <= 3)
-return text.slice(0, maxColumns)
-  return `${text.slice(0, maxColumns - 3)}...`
+return truncateTextByColumns(text, maxColumns).text
+  return `${truncateTextByColumns(text, maxColumns - 3).text}...`
 }
 
 function truncateItem(text: string, maxColumns: number | undefined) {
   if (!maxColumns || maxColumns <= 0)
     return { text, visibleLength: text.length }
-  if (text.length <= maxColumns)
-return { text, visibleLength: text.length }
+  if (stringDisplayWidth(text) <= maxColumns)
+    return { text, visibleLength: text.length }
   if (maxColumns <= 3)
-    return { text: text.slice(0, maxColumns), visibleLength: maxColumns }
-  const visibleLength = maxColumns - 3
-  return { text: `${text.slice(0, visibleLength)}...`, visibleLength }
+return truncateTextByColumns(text, maxColumns)
+  const truncated = truncateTextByColumns(text, maxColumns - 3)
+  return {
+    text: `${truncated.text}...`,
+    visibleLength: truncated.visibleLength,
+  }
 }
 
 function applyHighlight(
@@ -301,6 +322,45 @@ return text
   return `\u001B[2m${text}\u001B[0m`
 }
 
+function getScrollThumb(
+  visibleIndex: number,
+  visibleCount: number,
+  offset: number,
+  total: number,
+) {
+  if (total <= visibleCount)
+return ' '
+
+  const thumbSize = Math.max(
+    1,
+    Math.round((visibleCount / total) * visibleCount),
+  )
+  const maxThumbTop = visibleCount - thumbSize
+  const maxOffset = Math.max(1, total - visibleCount)
+  const thumbTop = Math.round((offset / maxOffset) * maxThumbTop)
+
+  return visibleIndex >= thumbTop && visibleIndex < thumbTop + thumbSize
+    ? '█'
+    : '│'
+}
+
+function appendScrollbar(
+  line: string,
+  scrollbar: string,
+  columns: number | undefined,
+  useColor: boolean,
+) {
+  if (!scrollbar)
+return line
+
+  const bar = useColor ? `\u001B[2m${scrollbar}\u001B[0m` : scrollbar
+  if (!columns || columns <= 1)
+return `${line}${bar}`
+
+  const width = stringDisplayWidth(stripVTControlCharacters(line))
+  return `${line}${' '.repeat(Math.max(0, columns - 1 - width))}${bar}`
+}
+
 export function isInteractiveTty() {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY)
 }
@@ -312,6 +372,12 @@ export function isPickerDisabled() {
       || process.env.CCOMMAND_NO_GUM
       || process.env.NO_GUM
       || ''
+  const flag = raw.toLowerCase()
+  return flag === '1' || flag === 'true' || flag === 'yes'
+}
+
+function isMouseDisabled() {
+  const raw = process.env.CCOMMAND_NO_MOUSE || ''
   const flag = raw.toLowerCase()
   return flag === '1' || flag === 'true' || flag === 'yes'
 }
@@ -341,8 +407,8 @@ return { status: cancelCode, result: '' }
   ).trim()
   const promptPathLabel = (promptPath || '').trim()
   const helpText = isZh
-    ? '上/下选择 左/右移动 Enter确认 Esc清空/取消'
-    : '↑/↓ Move ←/→ Cursor Enter select Esc clear/cancel'
+    ? '上/下选择 PgUp/PgDn翻页 Home/End跳转 Enter确认 Esc清空/取消'
+    : '↑/↓ Move PgUp/PgDn Page Home/End Jump Enter select Esc clear/cancel'
 
   let query = ''
   let cursor = 0
@@ -353,7 +419,9 @@ return { status: cancelCode, result: '' }
 
   let maxVisible = 0
   const updateMaxVisible = () => {
-    maxVisible = Math.max(4, Math.min(maxItems || 10, (output.rows || 24) - 5))
+    const rows = output.rows || 24
+    const available = Math.max(4, rows - 4)
+    maxVisible = Math.max(4, Math.min(maxItems ?? available, available))
   }
   updateMaxVisible()
 
@@ -366,6 +434,15 @@ output.write('\u001B[?25l')
   const showCursor = () => {
     if (useColor)
 output.write('\u001B[?25h')
+  }
+  const useMouse = Boolean(output.isTTY && !isMouseDisabled())
+  const enableMouse = () => {
+    if (useMouse)
+output.write('\u001B[?1000h\u001B[?1006h')
+  }
+  const disableMouse = () => {
+    if (useMouse)
+output.write('\u001B[?1000l\u001B[?1006l')
   }
 
   const clearRendered = () => {
@@ -450,11 +527,16 @@ offset = 0
  else {
       updateOffset()
       const slice = ranked.slice(offset, offset + maxVisible)
+      const showScrollbar = ranked.length > maxVisible
       slice.forEach((entry, index) => {
         const isSelected = offset + index === cursor
         const prefix = isSelected ? '> ' : '  '
+        const scrollbar = showScrollbar
+          ? getScrollThumb(index, slice.length, offset, ranked.length)
+          : ''
+        const scrollbarColumns = scrollbar ? 1 : 0
         const maxColumns = output.columns
-          ? Math.max(0, output.columns - prefix.length)
+          ? Math.max(0, output.columns - prefix.length - scrollbarColumns)
           : undefined
         const baseStyle
           = useColor && isSelected ? '\u001B[48;5;237m\u001B[38;5;231m' : ''
@@ -463,6 +545,10 @@ offset = 0
           : ''
         const resetStyle = useColor ? '\u001B[0m' : ''
         const resumeStyle = baseStyle ? `${resetStyle}${baseStyle}` : resetStyle
+
+        const pushItemLine = (line: string) => {
+          lines.push(appendScrollbar(line, scrollbar, output.columns, useColor))
+        }
 
         const renderStandardItem = () => {
           const truncated = truncateItem(entry.item, maxColumns)
@@ -481,7 +567,7 @@ line += baseStyle
           )
           if (baseStyle)
 line += resetStyle
-          lines.push(line)
+          pushItemLine(line)
         }
 
         const workspaceParts = splitWorkspaceItem(entry.item)
@@ -552,7 +638,7 @@ line += dimStyle
           )
           if (useColor && (baseStyle || dimStyle))
 line += resetStyle
-          lines.push(line)
+          pushItemLine(line)
           return
         }
 
@@ -623,7 +709,7 @@ line += dimStyle
         )
         if (useColor && (baseStyle || dimStyle))
 line += resetStyle
-        lines.push(line)
+        pushItemLine(line)
       })
     }
 
@@ -675,6 +761,7 @@ output.off('resize', onResize)
 input.setRawMode(false)
       input.pause()
       clearRendered()
+      disableMouse()
       showCursor()
     }
 
@@ -693,6 +780,23 @@ return finish(cancelCode, '')
       }
 
       if (str.startsWith('\u001B')) {
+        if (
+          str.startsWith('\u001B[<')
+          && (str.endsWith('m') || str.endsWith('M'))
+        ) {
+          const code = Number(str.slice(3, -1).split(';')[0])
+          if (code === 64 && ranked.length) {
+            cursor = Math.max(0, cursor - 1)
+            render()
+            return
+          }
+          if (code === 65 && ranked.length) {
+            cursor = Math.min(ranked.length - 1, cursor + 1)
+            render()
+            return
+          }
+          return
+        }
         if (str === '\u001B') {
           if (query.length) {
             query = ''
@@ -736,6 +840,16 @@ inputCursor++
         }
         if (str === '\u001B[6~') {
           cursor = Math.min(ranked.length - 1, cursor + maxVisible)
+          render()
+          return
+        }
+        if (str === '\u001B[H' || str === '\u001BOH' || str === '\u001B[1~') {
+          cursor = 0
+          render()
+          return
+        }
+        if (str === '\u001B[F' || str === '\u001BOF' || str === '\u001B[4~') {
+          cursor = Math.max(0, ranked.length - 1)
           render()
           return
         }
@@ -788,6 +902,7 @@ input.setRawMode(true)
     }
 
     hideCursor()
+    enableMouse()
     render()
     function onResize() {
       updateMaxVisible()

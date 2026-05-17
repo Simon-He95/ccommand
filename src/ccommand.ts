@@ -12,10 +12,15 @@ import { runScript as exportedRunScript } from './commands/runScript.js'
 import { cancel, cancelCode, isZh, log, notfound, runMsg } from './constants.js'
 // 导入新模块
 import { findAndExecuteFile, handleFileExecution } from './file-execution.js'
-import { pushHistory } from './history.js'
+import { pushHistory, resolveHistoryHintPath } from './history.js'
 import { readMakefile } from './makefile.js'
 import { ensurePicker, pickFromList } from './picker.js'
-import { ensureShellInitInstalled } from './shell-install.js'
+import {
+  detectShellName,
+  ensureShellInitInstalled,
+  hasInstallLine,
+  resolveRcPath,
+} from './shell-install.js'
 import {
   formatShellCommand,
   fuzzyMatch,
@@ -62,6 +67,53 @@ return name
   return { options, optionToName }
 }
 
+function yesNo(value: boolean) {
+  return value ? 'yes' : 'no'
+}
+
+async function printDoctor() {
+  const shellName = detectShellName() || 'unknown'
+  const rcPath = resolveRcPath(shellName)
+  let rcExists = false
+  let rcContent = ''
+  if (rcPath) {
+    try {
+      rcContent = await fsp.readFile(rcPath, 'utf8')
+      rcExists = true
+    }
+ catch {
+      rcExists = false
+    }
+  }
+
+  const historyHintPath = resolveHistoryHintPath()
+  let hintExists = false
+  let hintValue = ''
+  try {
+    hintValue = (await fsp.readFile(historyHintPath, 'utf8')).trim()
+    hintExists = true
+  }
+ catch {
+    hintExists = false
+  }
+
+  console.log([
+    `shell detected: ${shellName}`,
+    `hook active: ${yesNo(process.env.CCOMMAND_HOOK_ACTIVE === '1')}`,
+    `profile path: ${rcPath || '(unsupported shell)'}`,
+    `profile exists: ${yesNo(rcExists)}`,
+    `profile contains ccommand --init: ${yesNo(Boolean(rcContent && hasInstallLine(rcContent)))}`,
+    `history hint path: ${historyHintPath}`,
+    `last hint exists: ${yesNo(hintExists)}`,
+    `last hint value: ${hintValue || '(empty)'}`,
+    `stdin isTTY: ${yesNo(Boolean(process.stdin.isTTY))}`,
+    `stdout isTTY: ${yesNo(Boolean(process.stdout.isTTY))}`,
+    `CCOMMAND_NO_HISTORY: ${process.env.CCOMMAND_NO_HISTORY || ''}`,
+    `NO_HISTORY: ${process.env.NO_HISTORY || ''}`,
+    `CCOMMAND_DIRECT_HISTORY: ${process.env.CCOMMAND_DIRECT_HISTORY || ''}`,
+  ].join('\n'))
+}
+
 function getScriptScopePath(dirname: string) {
   if (!dirname || dirname === '.')
 return '.'
@@ -83,6 +135,11 @@ export async function ccommand(
   const isHelpCommand = rawArg0 === '-h' || rawArg0 === '--help'
   const isVersionCommand = rawArg0 === '-v' || rawArg0 === '--version'
   const isInstallCommand = rawArg0 === '--install' || rawArg0 === 'install'
+  const isDoctorCommand = rawArg0 === '--doctor' || rawArg0 === 'doctor'
+  if (isDoctorCommand) {
+    await printDoctor()
+    return
+  }
   if (isInstallCommand) {
     await ensureShellInitInstalled({
       force: true,
@@ -114,6 +171,7 @@ export async function ccommand(
     let initScript = ''
     if (shellName === 'zsh') {
       initScript = [
+        'export CCOMMAND_HOOK_ACTIVE=1',
         'ccommand() {',
         `  local bin=${binLiteral}`,
         '  local -a cmd',
@@ -172,6 +230,7 @@ export async function ccommand(
     }
  else if (shellName === 'bash') {
       initScript = [
+        'export CCOMMAND_HOOK_ACTIVE=1',
         'ccommand() {',
         `  local bin=${binLiteral}`,
         '  local -a cmd',
@@ -234,6 +293,7 @@ export async function ccommand(
     }
  else if (shellName === 'fish') {
       initScript = [
+        'set -gx CCOMMAND_HOOK_ACTIVE 1',
         'function ccommand',
         `  set -l bin ${binLiteral}`,
         '  set -l cmd (string split -- " " $bin)',
@@ -315,6 +375,7 @@ export async function ccommand(
   - ccommand 执行当前package.json
   - ccommand find 查找当前workspace的所有目录
   - ccommand --init [zsh|bash|fish] [bin] 输出 shell 集成脚本（未传则自动检测）
+  - ccommand --doctor 输出 shell/history 诊断信息
       `,
     color: 'cyan',
   })}

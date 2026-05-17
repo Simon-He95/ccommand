@@ -222,11 +222,14 @@ function truncateItem(text: string, maxColumns: number | undefined) {
   if (!maxColumns || maxColumns <= 0)
     return { text, visibleLength: text.length }
   if (stringDisplayWidth(text) <= maxColumns)
-return { text, visibleLength: text.length }
+    return { text, visibleLength: text.length }
   if (maxColumns <= 3)
-    return truncateTextByColumns(text, maxColumns)
+return truncateTextByColumns(text, maxColumns)
   const truncated = truncateTextByColumns(text, maxColumns - 3)
-  return { text: `${truncated.text}...`, visibleLength: truncated.visibleLength }
+  return {
+    text: `${truncated.text}...`,
+    visibleLength: truncated.visibleLength,
+  }
 }
 
 function applyHighlight(
@@ -328,12 +331,17 @@ function getScrollThumb(
   if (total <= visibleCount)
 return ' '
 
-  const thumbSize = Math.max(1, Math.round((visibleCount / total) * visibleCount))
+  const thumbSize = Math.max(
+    1,
+    Math.round((visibleCount / total) * visibleCount),
+  )
   const maxThumbTop = visibleCount - thumbSize
   const maxOffset = Math.max(1, total - visibleCount)
   const thumbTop = Math.round((offset / maxOffset) * maxThumbTop)
 
-  return visibleIndex >= thumbTop && visibleIndex < thumbTop + thumbSize ? '█' : '│'
+  return visibleIndex >= thumbTop && visibleIndex < thumbTop + thumbSize
+    ? '█'
+    : '│'
 }
 
 function appendScrollbar(
@@ -772,9 +780,11 @@ return finish(cancelCode, '')
       }
 
       if (str.startsWith('\u001B')) {
-        const mouse = str.match(/^\u001B\[<(\d+);\d+;\d+[mM]$/)
-        if (mouse) {
-          const code = Number(mouse[1])
+        if (
+          str.startsWith('\u001B[<')
+          && (str.endsWith('m') || str.endsWith('M'))
+        ) {
+          const code = Number(str.slice(3, -1).split(';')[0])
           if (code === 64 && ranked.length) {
             cursor = Math.max(0, cursor - 1)
             render()
@@ -833,20 +843,12 @@ inputCursor++
           render()
           return
         }
-        if (
-          str === '\u001B[H'
-          || str === '\u001BOH'
-          || str === '\u001B[1~'
-        ) {
+        if (str === '\u001B[H' || str === '\u001BOH' || str === '\u001B[1~') {
           cursor = 0
           render()
           return
         }
-        if (
-          str === '\u001B[F'
-          || str === '\u001BOF'
-          || str === '\u001B[4~'
-        ) {
+        if (str === '\u001B[F' || str === '\u001BOF' || str === '\u001B[4~') {
           cursor = Math.max(0, ranked.length - 1)
           render()
           return

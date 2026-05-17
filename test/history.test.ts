@@ -14,13 +14,22 @@ function makeTempHome() {
 describe('pushHistory', () => {
   let oldHome: string | undefined
   let oldShell: string | undefined
+  let oldDirectHistory: string | undefined
+  let oldHistoryHint: string | undefined
+  let oldHisttimeformat: string | undefined
   let tmpHome: string
 
   beforeEach(() => {
     oldHome = process.env.HOME
     oldShell = process.env.SHELL
+    oldDirectHistory = process.env.CCOMMAND_DIRECT_HISTORY
+    oldHistoryHint = process.env.CCOMMAND_HISTORY_HINT
+    oldHisttimeformat = process.env.HISTTIMEFORMAT
     tmpHome = makeTempHome()
     process.env.HOME = tmpHome
+    delete process.env.CCOMMAND_DIRECT_HISTORY
+    delete process.env.CCOMMAND_HISTORY_HINT
+    delete process.env.HISTTIMEFORMAT
   })
 
   afterEach(() => {
@@ -28,14 +37,38 @@ describe('pushHistory', () => {
     else process.env.HOME = oldHome
     if (oldShell === undefined) delete process.env.SHELL
     else process.env.SHELL = oldShell
+    if (oldDirectHistory === undefined)
+      delete process.env.CCOMMAND_DIRECT_HISTORY
+    else process.env.CCOMMAND_DIRECT_HISTORY = oldDirectHistory
+    if (oldHistoryHint === undefined) delete process.env.CCOMMAND_HISTORY_HINT
+    else process.env.CCOMMAND_HISTORY_HINT = oldHistoryHint
+    if (oldHisttimeformat === undefined) delete process.env.HISTTIMEFORMAT
+    else process.env.HISTTIMEFORMAT = oldHisttimeformat
     try {
       rmSync(tmpHome, { recursive: true, force: true })
     } catch {}
   })
 
+  it('writes the last-history hint by default', async () => {
+    process.env.SHELL = '/bin/bash'
+    const historyPath = path.join(tmpHome, '.bash_history')
+    await fsp.writeFile(historyPath, 'echo 1\n', 'utf8')
+
+    const { pushHistory, resolveHistoryHintPath } = await import(
+      '../src/history.js'
+    )
+    await pushHistory('echo 2')
+
+    const got = await fsp.readFile(historyPath, 'utf8')
+    expect(got).toBe('echo 1\n')
+
+    const hint = await fsp.readFile(resolveHistoryHintPath(), 'utf8')
+    expect(hint).toMatch(/\d+\techo 2\n/)
+  })
+
   it('appends non-duplicate command to bash history without HISTTIMEFORMAT', async () => {
     process.env.SHELL = '/bin/bash'
-    delete process.env.HISTTIMEFORMAT
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     const historyPath = path.join(tmpHome, '.bash_history')
     await fsp.writeFile(historyPath, 'echo 1\n', 'utf8')
 
@@ -48,6 +81,7 @@ describe('pushHistory', () => {
 
   it('deduplicates fish history entries and appends new one', async () => {
     process.env.SHELL = '/usr/bin/fish'
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     const historyPath = path.join(tmpHome, '.local', 'share', 'fish')
     await fsp.mkdir(historyPath, { recursive: true })
     const histFile = path.join(historyPath, 'fish_history')
@@ -68,6 +102,7 @@ describe('pushHistory', () => {
 
   it('deduplicates zsh history and appends new entry', async () => {
     process.env.SHELL = '/bin/zsh'
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     const historyPath = path.join(tmpHome, '.zsh_history')
     // create two entries, one duplicate of 'echo 1'
     const initial = `: 1:0;echo 1\n: 2:0;echo 2\n`
@@ -84,6 +119,7 @@ describe('pushHistory', () => {
 
   it('bash with HISTTIMEFORMAT writes timestamped entry and deduplicates', async () => {
     process.env.SHELL = '/bin/bash'
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     process.env.HISTTIMEFORMAT = '%F %T '
     const historyPath = path.join(tmpHome, '.bash_history')
     // initial timestamped entry
@@ -102,6 +138,7 @@ describe('pushHistory', () => {
 
   it('zsh collapses multiple previous duplicates into a single newest entry', async () => {
     process.env.SHELL = '/bin/zsh'
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     const historyPath = path.join(tmpHome, '.zsh_history')
     const initial = ': 1:0;dup\n: 2:0;dup\n: 3:0;other\n'
     await fsp.writeFile(historyPath, initial, 'utf8')
@@ -119,6 +156,7 @@ describe('pushHistory', () => {
 
   it('fish preserves extra metadata lines in a block when deduplicating', async () => {
     process.env.SHELL = '/usr/bin/fish'
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     const historyPath = path.join(tmpHome, '.local', 'share', 'fish')
     await fsp.mkdir(historyPath, { recursive: true })
     const histFile = path.join(historyPath, 'fish_history')
@@ -141,6 +179,7 @@ describe('pushHistory', () => {
 
   it('does nothing if history file does not exist', async () => {
     process.env.SHELL = '/bin/bash'
+    process.env.CCOMMAND_DIRECT_HISTORY = '1'
     const historyPath = path.join(tmpHome, '.bash_history')
     // ensure file does not exist
     try {

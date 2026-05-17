@@ -29,7 +29,13 @@ function isHistoryDisabled() {
   return flag === '1' || flag === 'true' || flag === 'yes'
 }
 
-function resolveHistoryHintPath() {
+function isDirectHistoryFallbackEnabled() {
+  const raw = process.env.CCOMMAND_DIRECT_HISTORY || ''
+  const flag = raw.trim().toLowerCase()
+  return flag === '1' || flag === 'true' || flag === 'yes'
+}
+
+export function resolveHistoryHintPath() {
   const custom = process.env.CCOMMAND_HISTORY_HINT || ''
   if (custom)
 return custom
@@ -167,10 +173,13 @@ return
   )
 
   const shellName = detectShellName()
+  await writeLastHistory(command)
+  if (!isDirectHistoryFallbackEnabled())
+return
+
   const { historyFile, historyFormat } = resolveHistoryTarget(shellName)
 
   try {
-    await writeLastHistory(command)
     // Use async access check to avoid blocking the event loop and handle race conditions.
     try {
       await fsp.access(historyFile)

@@ -416,12 +416,13 @@ return { status: cancelCode, result: '' }
   let inputCursor = 0
   let rendered = [] as string[]
   let renderedColumns: number | undefined
+  let reservedRows = 0
 
   let maxVisible = 0
   const updateMaxVisible = () => {
     const rows = output.rows || 24
-    const available = Math.max(4, rows - 4)
-    maxVisible = Math.max(4, Math.min(maxItems ?? available, available))
+    const available = Math.max(1, rows - 4)
+    maxVisible = Math.max(1, Math.min(maxItems ?? available, available))
   }
   updateMaxVisible()
 
@@ -463,6 +464,22 @@ readline.moveCursor(output, 0, -1)
     renderedColumns = undefined
   }
 
+  const reserveRenderSpace = () => {
+    const rows = maxVisible + 4
+    if (rows <= reservedRows)
+return
+    const extraRows = reservedRows === 0 ? rows - 1 : rows - reservedRows
+    const downRows = reservedRows === 0 ? 0 : reservedRows - 1
+    readline.cursorTo(output, 0)
+    if (downRows > 0)
+readline.moveCursor(output, 0, downRows)
+    if (extraRows > 0)
+output.write('\n'.repeat(extraRows))
+    readline.moveCursor(output, 0, -(downRows + extraRows))
+    readline.cursorTo(output, 0)
+    reservedRows = rows
+  }
+
   const updateOffset = () => {
     if (cursor < offset)
 offset = cursor
@@ -474,6 +491,7 @@ offset = 0
 
   const render = () => {
     clearRendered()
+    reserveRenderSpace()
 
     const lines: string[] = []
     const promptPrefix = `? ${promptLabel}`

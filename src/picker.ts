@@ -465,6 +465,23 @@ input.setRawMode(true)
   input.resume()
 
   let anchorRow = (await requestCursorPosition(input, output))?.row
+  const fixedPickerRows = 4
+  const minVisibleItems = 1
+  const ensureMinimumPickerRows = () => {
+    if (!anchorRow)
+return
+    const rows = output.rows || 24
+    const visibleRows = rows - anchorRow + 1
+    const minRows = fixedPickerRows + minVisibleItems
+    if (visibleRows >= minRows)
+return
+    const scrollRows = minRows - visibleRows
+    output.write(`\u001B[${rows};1H`)
+    output.write('\n'.repeat(scrollRows))
+    anchorRow = Math.max(1, anchorRow - scrollRows)
+  }
+  ensureMinimumPickerRows()
+
   const promptLabel = (
     placeholder || (isZh ? '请选择一个选项' : 'Select')
   ).trim()
@@ -484,8 +501,11 @@ input.setRawMode(true)
   const updateMaxVisible = () => {
     const rows = output.rows || 24
     const visibleRows = anchorRow ? rows - anchorRow + 1 : Math.max(1, rows - 2)
-    const available = Math.max(1, visibleRows - 4)
-    maxVisible = Math.max(1, Math.min(maxItems ?? available, available))
+    const available = Math.max(minVisibleItems, visibleRows - fixedPickerRows)
+    maxVisible = Math.max(
+      minVisibleItems,
+      Math.min(maxItems ?? available, available),
+    )
   }
   updateMaxVisible()
 
@@ -534,20 +554,6 @@ readline.moveCursor(output, 0, -1)
     renderedColumns = undefined
   }
 
-  const reserveRenderSpace = () => {
-    if (!anchorRow)
-return
-    const rows = output.rows || 24
-    const renderRows = maxVisible + 4
-    const visibleRows = rows - anchorRow + 1
-    if (visibleRows >= renderRows)
-return
-    const scrollRows = renderRows - visibleRows
-    output.write(`\u001B[${rows};1H`)
-    output.write('\n'.repeat(scrollRows))
-    anchorRow = Math.max(1, anchorRow - scrollRows)
-  }
-
   const updateOffset = () => {
     if (cursor < offset)
 offset = cursor
@@ -559,7 +565,6 @@ offset = 0
 
   const render = () => {
     clearRendered()
-    reserveRenderSpace()
 
     const lines: string[] = []
     const promptPrefix = `? ${promptLabel}`
@@ -993,6 +998,7 @@ input.setRawMode(true)
     enableMouse()
     render()
     function onResize() {
+      ensureMinimumPickerRows()
       updateMaxVisible()
       updateOffset()
       render()

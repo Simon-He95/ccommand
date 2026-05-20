@@ -382,6 +382,64 @@ function isMouseDisabled() {
   return flag === '1' || flag === 'true' || flag === 'yes'
 }
 
+function requestCursorPosition(
+  input: NodeJS.ReadStream,
+  output: NodeJS.WriteStream,
+) {
+  if (!input.isTTY || !output.isTTY)
+return Promise.resolve(null)
+
+  return new Promise<{ row: number, col: number } | null>((resolve) => {
+    let buffer = ''
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const parseCursorPosition = (value: string) => {
+      const start = value.lastIndexOf('\u001B[')
+      if (start === -1)
+return null
+
+      let index = start + 2
+      let row = ''
+      while (index < value.length && value[index] >= '0' && value[index] <= '9')
+        row += value[index++]
+      if (!row || value[index] !== ';')
+return null
+
+      index++
+      let col = ''
+      while (index < value.length && value[index] >= '0' && value[index] <= '9')
+        col += value[index++]
+      if (!col || value[index] !== 'R')
+return null
+
+      return { row: Number(row), col: Number(col) }
+    }
+
+    function onData(data: Buffer) {
+      buffer += data.toString('utf8')
+      const position = parseCursorPosition(buffer)
+      if (!position)
+return
+      cleanup()
+      resolve(position)
+    }
+
+    function cleanup() {
+      if (timer)
+clearTimeout(timer)
+      input.off('data', onData)
+    }
+
+    timer = setTimeout(() => {
+      cleanup()
+      resolve(null)
+    }, 120)
+
+    input.on('data', onData)
+    output.write('\u001B[6n')
+  })
+}
+
 export async function ensurePicker(_isZh: boolean): Promise<boolean> {
   if (isPickerDisabled() || !isInteractiveTty() || process.env.CI)
 return false
@@ -402,6 +460,11 @@ return { status: cancelCode, result: '' }
   const input = process.stdin
   const output = process.stdout
   const useColor = Boolean(output.isTTY && !process.env.NO_COLOR)
+  if (input.isTTY)
+input.setRawMode(true)
+  input.resume()
+
+  let anchorRow = (await requestCursorPosition(input, output))?.row
   const promptLabel = (
     placeholder || (isZh ? '请选择一个选项' : 'Select')
   ).trim()
@@ -416,12 +479,12 @@ return { status: cancelCode, result: '' }
   let inputCursor = 0
   let rendered = [] as string[]
   let renderedColumns: number | undefined
-  let reservedRows = 0
 
   let maxVisible = 0
   const updateMaxVisible = () => {
     const rows = output.rows || 24
-    const available = Math.max(1, rows - 4)
+    const visibleRows = anchorRow ? rows - anchorRow + 1 : Math.max(1, rows - 2)
+    const available = Math.max(1, visibleRows - 4)
     maxVisible = Math.max(1, Math.min(maxItems ?? available, available))
   }
   updateMaxVisible()
@@ -449,6 +512,13 @@ output.write('\u001B[?1000l\u001B[?1006l')
   const clearRendered = () => {
     if (!rendered.length)
 return
+    if (anchorRow) {
+      output.write(`\u001B[${anchorRow};1H`)
+      readline.clearScreenDown(output)
+      rendered = []
+      renderedColumns = undefined
+      return
+    }
     const columnsForClear = renderedColumns
     const rows = rendered.reduce(
       (sum, line) => sum + countWrappedRows(line, columnsForClear),
@@ -465,19 +535,17 @@ readline.moveCursor(output, 0, -1)
   }
 
   const reserveRenderSpace = () => {
-    const rows = maxVisible + 4
-    if (rows <= reservedRows)
+    if (!anchorRow)
 return
-    const extraRows = reservedRows === 0 ? rows - 1 : rows - reservedRows
-    const downRows = reservedRows === 0 ? 0 : reservedRows - 1
-    readline.cursorTo(output, 0)
-    if (downRows > 0)
-readline.moveCursor(output, 0, downRows)
-    if (extraRows > 0)
-output.write('\n'.repeat(extraRows))
-    readline.moveCursor(output, 0, -(downRows + extraRows))
-    readline.cursorTo(output, 0)
-    reservedRows = rows
+    const rows = output.rows || 24
+    const renderRows = maxVisible + 4
+    const visibleRows = rows - anchorRow + 1
+    if (visibleRows >= renderRows)
+return
+    const scrollRows = renderRows - visibleRows
+    output.write(`\u001B[${rows};1H`)
+    output.write('\n'.repeat(scrollRows))
+    anchorRow = Math.max(1, anchorRow - scrollRows)
   }
 
   const updateOffset = () => {
@@ -740,6 +808,8 @@ line += resetStyle
       ),
     )
 
+    if (anchorRow)
+output.write(`\u001B[${anchorRow};1H`)
     output.write(lines.join('\n'))
     rendered = [...lines]
     renderedColumns = output.columns

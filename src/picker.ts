@@ -466,13 +466,13 @@ input.setRawMode(true)
 
   let anchorRow = (await requestCursorPosition(input, output))?.row
   const fixedPickerRows = 4
-  const minVisibleItems = 1
+  const minVisibleItems = 10
   const ensureMinimumPickerRows = () => {
     if (!anchorRow)
 return
     const rows = output.rows || 24
     const visibleRows = rows - anchorRow + 1
-    const minRows = fixedPickerRows + minVisibleItems
+    const minRows = Math.min(rows, fixedPickerRows + minVisibleItems)
     if (visibleRows >= minRows)
 return
     const scrollRows = minRows - visibleRows
@@ -501,11 +501,8 @@ return
   const updateMaxVisible = () => {
     const rows = output.rows || 24
     const visibleRows = anchorRow ? rows - anchorRow + 1 : Math.max(1, rows - 2)
-    const available = Math.max(minVisibleItems, visibleRows - fixedPickerRows)
-    maxVisible = Math.max(
-      minVisibleItems,
-      Math.min(maxItems ?? available, available),
-    )
+    const available = Math.max(1, visibleRows - fixedPickerRows)
+    maxVisible = Math.min(maxItems ?? available, available)
   }
   updateMaxVisible()
 

@@ -840,7 +840,16 @@ inputCursor = 0
 return
       resolved = true
       cleanup()
-      resolve({ status, result })
+      // Flush the terminal-restore writes (disable mouse, show cursor, clear
+      // UI) before resolving. Callers may exit immediately afterwards, and a
+      // hard process.exit() can drop queued writes on Windows (ConPTY),
+      // leaving mouse tracking enabled in the terminal session. The shell
+      // then receives mouse escape sequences into its input queue, which
+      // makes typing laggy until the terminal is reset.
+      const flushed = () => resolve({ status, result })
+      output.write('', flushed)
+      const timer = setTimeout(flushed, 200)
+      timer.unref?.()
     }
 
     function cleanup() {

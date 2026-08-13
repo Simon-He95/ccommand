@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { cancelledText, isZh, log } from './constants.js'
+import { cancelCode, cancelledText, isZh, log } from './constants.js'
 
 const safeArgRegExp = /^[\w./:@%+=,-]+$/
 
@@ -161,8 +161,24 @@ return undefined
 export function cancel(): never {
   // cancel may run synchronously; print plain text to avoid dynamic import latency
   log(cancelledText)
-  // Explicit exit code for cancel
-  process.exit(130)
+  // Flush queued terminal-restore writes before exiting so they are not
+  // dropped by a hard process.exit() on Windows (ConPTY), which can leave
+  // mouse tracking enabled and make the shell's input laggy.
+  const stdout = process.stdout
+  if (stdout.writableLength > 0) {
+    process.exitCode = cancelCode
+    const exit = () => process.exit(cancelCode)
+    try {
+      stdout.write('', exit)
+    }
+ catch {
+      process.exit(cancelCode)
+    }
+    const timer = setTimeout(exit, 200)
+    timer.unref?.()
+    return undefined as never
+  }
+  process.exit(cancelCode)
 }
 
 // 常量导出

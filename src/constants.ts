@@ -19,5 +19,24 @@ export function cancel(): never {
   const yellow = '\u001B[33m'
   const reset = '\u001B[0m'
   log(`${yellow}${cancelledText}${reset}`)
+  // Wait for queued terminal-restore writes (mouse tracking off, cursor show,
+  // screen clear) to flush before exiting. A hard process.exit() can drop
+  // them on Windows (ConPTY), leaving mouse tracking enabled in the terminal
+  // session, which floods the shell's input queue with mouse escape sequences
+  // and makes typing laggy after cancelling a selection.
+  const stdout = process.stdout
+  if (stdout.writableLength > 0) {
+    process.exitCode = cancelCode
+    const exit = () => process.exit(cancelCode)
+    try {
+      stdout.write('', exit)
+    }
+ catch {
+      process.exit(cancelCode)
+    }
+    const timer = setTimeout(exit, 200)
+    timer.unref?.()
+    return undefined as never
+  }
   return process.exit(cancelCode)
 }

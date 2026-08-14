@@ -193,3 +193,25 @@ export const constants = {
   runMsg: isZh ? '正在为您执行...' : 'is running for you...',
   splitFlag: '__ccommand__split',
 }
+
+/**
+ * Run a child command while ignoring SIGINT in the parent process.
+ *
+ * On Windows, Ctrl+C is delivered to every process attached to the console.
+ * If the parent exits immediately while a grandchild (cmd.exe) is still
+ * alive asking "Terminate batch job (Y/N)?", the shell resumes reading
+ * input and races with the batch prompt — keystrokes get split between the
+ * two readers and stray lines end up executed as commands. Ignoring SIGINT
+ * keeps the parent alive until the child process tree exits; the child
+ * still receives Ctrl+C itself.
+ */
+export async function runGuardedChild<T>(fn: () => Promise<T>): Promise<T> {
+  const onSigint = () => {}
+  process.on('SIGINT', onSigint)
+  try {
+    return await fn()
+  }
+ finally {
+    process.off('SIGINT', onSigint)
+  }
+}

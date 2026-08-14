@@ -7,7 +7,7 @@ import colorize from '@simon_he/colorize'
 import { jsShell } from 'lazy-js-utils/node'
 import { isZh, log } from './constants.js'
 import { pushHistory } from './history.js'
-import { formatShellCommand } from './utils.js'
+import { formatShellCommand, runGuardedChild } from './utils.js'
 
 const execAsync = promisify(exec)
 
@@ -58,11 +58,13 @@ export async function executeFile(
 ): Promise<boolean> {
   const historyCommand = formatShellCommand(['prun', filePath])
   await pushHistory(historyCommand)
-  const { status } = await jsShell(command, {
-    errorExit: false,
-    isLog: false,
-    stdio: 'inherit',
-  })
+  const { status } = await runGuardedChild(() =>
+    jsShell(command, {
+      errorExit: false,
+      isLog: false,
+      stdio: 'inherit',
+    }),
+  )
   const ok = status === 0
   if (!ok) {
     process.exitCode = status ?? 1
@@ -181,7 +183,9 @@ export async function handleFileExecution(
     if (compile.status === 0) {
       // Run the produced executable (use basename to derive executable name)
       const exeName = `./${path.basename(argv0, '.rs')}`
-      const run = await jsShell(exeName, { stdio: 'inherit' })
+      const run = await runGuardedChild(() =>
+        jsShell(exeName, { stdio: 'inherit' }),
+      )
       if (run.status === 0) {
         await pushHistory(`prun ${argv0}`)
         log(

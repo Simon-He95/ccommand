@@ -9,7 +9,15 @@ import { getCommand as exportedGetCommand } from './commands/getCommand.js'
 
 import { getScripts as exportedGetScripts } from './commands/getScripts.js'
 import { runScript as exportedRunScript } from './commands/runScript.js'
-import { cancel, cancelCode, isZh, log, notfound, runMsg } from './constants.js'
+import {
+  cancel,
+  cancelCode,
+  cancelledText,
+  isZh,
+  log,
+  notfound,
+  runMsg,
+} from './constants.js'
 // 导入新模块
 import { findAndExecuteFile, handleFileExecution } from './file-execution.js'
 import { pushHistory, resolveHistoryHintPath } from './history.js'
@@ -26,12 +34,22 @@ import {
   fuzzyMatch,
   getParams,
   normalizeArgv,
+  runGuardedChild,
   shellEscape,
 } from './utils.js'
 import { getData, getWorkspaceNames, getWorkspacePaths } from './workspace.js'
 
 // Then wrap your getPkg calls
 const memoizedGetPkg = memorizeFn(getPkg)
+
+// While a child command tree runs, the parent must survive Ctrl+C on
+// Windows: exiting early lets the shell resume reading input while cmd.exe
+// is still alive asking "Terminate batch job (Y/N)?" and the two readers
+// race for keystrokes.
+const guardedJsShell: typeof jsShell = ((
+  commander: string | string[],
+  options?: any,
+) => runGuardedChild(() => jsShell(commander, options))) as typeof jsShell
 
 // cacheData moved to individual command modules
 
@@ -97,21 +115,25 @@ async function printDoctor() {
     hintExists = false
   }
 
-  console.log([
-    `shell detected: ${shellName}`,
-    `hook active: ${yesNo(process.env.CCOMMAND_HOOK_ACTIVE === '1')}`,
-    `profile path: ${rcPath || '(unsupported shell)'}`,
-    `profile exists: ${yesNo(rcExists)}`,
-    `profile contains ccommand --init: ${yesNo(Boolean(rcContent && hasInstallLine(rcContent)))}`,
-    `history hint path: ${historyHintPath}`,
-    `last hint exists: ${yesNo(hintExists)}`,
-    `last hint value: ${hintValue || '(empty)'}`,
-    `stdin isTTY: ${yesNo(Boolean(process.stdin.isTTY))}`,
-    `stdout isTTY: ${yesNo(Boolean(process.stdout.isTTY))}`,
-    `CCOMMAND_NO_HISTORY: ${process.env.CCOMMAND_NO_HISTORY || ''}`,
-    `NO_HISTORY: ${process.env.NO_HISTORY || ''}`,
-    `CCOMMAND_DIRECT_HISTORY: ${process.env.CCOMMAND_DIRECT_HISTORY || ''}`,
-  ].join('\n'))
+  console.log(
+    [
+      `shell detected: ${shellName}`,
+      `hook active: ${yesNo(process.env.CCOMMAND_HOOK_ACTIVE === '1')}`,
+      `profile path: ${rcPath || '(unsupported shell)'}`,
+      `profile exists: ${yesNo(rcExists)}`,
+      `profile contains ccommand --init: ${yesNo(
+        Boolean(rcContent && hasInstallLine(rcContent)),
+      )}`,
+      `history hint path: ${historyHintPath}`,
+      `last hint exists: ${yesNo(hintExists)}`,
+      `last hint value: ${hintValue || '(empty)'}`,
+      `stdin isTTY: ${yesNo(Boolean(process.stdin.isTTY))}`,
+      `stdout isTTY: ${yesNo(Boolean(process.stdout.isTTY))}`,
+      `CCOMMAND_NO_HISTORY: ${process.env.CCOMMAND_NO_HISTORY || ''}`,
+      `NO_HISTORY: ${process.env.NO_HISTORY || ''}`,
+      `CCOMMAND_DIRECT_HISTORY: ${process.env.CCOMMAND_DIRECT_HISTORY || ''}`,
+    ].join('\n'),
+  )
 }
 
 function getScriptScopePath(dirname: string) {
@@ -460,7 +482,7 @@ return cancel()
           makePrefixArgs,
           argv,
           pushHistory,
-          jsShell,
+          guardedJsShell,
           colorize,
           isZh,
           successText,
@@ -599,7 +621,7 @@ return cancel()
           argv.slice(1),
           argv,
           pushHistory,
-          jsShell,
+          guardedJsShell,
           colorize,
           isZh,
           successText,
@@ -672,7 +694,7 @@ return
             prefixArgs,
             argv,
             pushHistory,
-            jsShell,
+            guardedJsShell,
             colorize,
             isZh,
             successText,
@@ -751,7 +773,7 @@ return cancel()
     runMsg,
     isZh,
     pushHistory,
-    jsShell,
+    guardedJsShell,
     // provide a scope-aware isNeedPrefix that uses the current argv
     isNeedPrefix: (p: string[]) => needPrefixCheck(argv[0], p, argv),
     fuzzyWorkspace,
@@ -761,7 +783,7 @@ return cancel()
   val = computedVal
   if (argv[0] === 'find')
 await pushHistory(historyText)
-  const { status, result = '' } = await jsShell(_command, {
+  const { status, result = '' } = await guardedJsShell(_command, {
     errorExit: false,
     stdio: 'inherit',
   })
@@ -779,6 +801,10 @@ await pushHistory(historyText)
         text: `\n${computedText} 🎉`,
       }),
     )
+  }
+  if (status === cancelCode || status === 3221225786 || status == null) {
+    // Ctrl+C interrupted the child: report cancellation instead of an error.
+    return log(cancelledText)
   }
  else if (
     result.includes('pnpm versions with respective Node.js version support')
@@ -800,7 +826,7 @@ npmArgs.shift()
       val,
       ...(npmArgs.length ? ['--', ...npmArgs] : []),
     ])
-    const { status } = await jsShell(npmCommand, 'inherit')
+    const { status } = await guardedJsShell(npmCommand, 'inherit')
     if (status === 0) {
       return log(
         colorize({
@@ -809,6 +835,8 @@ npmArgs.shift()
         }),
       )
     }
+    if (status === cancelCode || status === 3221225786)
+      return log(cancelledText)
   }
 
   log(

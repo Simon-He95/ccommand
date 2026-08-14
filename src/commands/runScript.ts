@@ -1,5 +1,6 @@
 import type colorize from '@simon_he/colorize'
 import type { pushHistory } from '../history.js'
+import { cancelledText } from '../constants.js'
 import { formatShellCommand } from '../utils.js'
 
 export async function runScript(
@@ -181,6 +182,17 @@ args.push('--')
       colorizeFn({
         color: 'green',
         text: `\n${historyCommand} ${successText} 🎉`,
+      }),
+    )
+  }
+  // Ctrl+C interrupted the child process tree: report cancellation instead
+  // of an error (130 and 0xC000013A are what shells return on Windows;
+  // null/undefined when the child was killed by a signal).
+  if (status === 130 || status === 3221225786 || status == null) {
+    return console.log(
+      colorizeFn({
+        color: 'yellow',
+        text: cancelledText,
       }),
     )
   }
